@@ -1,0 +1,37 @@
+{
+  "name": "cypress-st-climanuvem",
+  "version": "1.0.0",
+  "private": true,
+  "description": "End-to-end test suite for EPI-ClimaNuvem using Cypress + JavaScript",
+  "license": "Apache-2.0",
+  "author": {
+    "name": "Cristian Augusto",
+    "url": "http://augustocristian.es"
+  },
+  "organization": "EPI Gijón - Universidad de Oviedo, ES",
+  "homepage": "https://gitlab.com/HP-SCDS/Observatorio/2025-2026/climanuvem",
+  "scripts": {
+    "cy:open": "cypress open",
+    "test": "cypress run",
+    "test:api": "cypress run --spec \"cypress/e2e/api/**/*.cy.js\"",
+    "test:system": "cypress run --spec \"cypress/e2e/system/**/*.cy.js\"",
+    "test:login": "cypress run --spec \"cypress/e2e/system/login.cy.js\"",
+    "test:register": "cypress run --spec \"cypress/e2e/system/register.cy.js\"",
+    "test:profile": "cypress run --spec \"cypress/e2e/system/profile.cy.js\"",
+    "test:image-analysis": "cypress run --spec \"cypress/e2e/api/imageAnalysisSystem.cy.js\" --env REAL_OLLAMA_TESTS=true",
+    "lint": "eslint cypress cypress.config.js"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.25.0",
+    "axios": "^1.7.9",
+    "cypress": "^15.4.0",
+    "eslint": "^9.25.0",
+    "eslint-plugin-cypress": "^4.1.0",
+    "form-data": "^4.0.1",
+    "globals": "^15.15.0",
+    "jpeg-js": "^0.4.4"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
