@@ -1,0 +1,13 @@
+target/
+reports/
+pom.xml.versionsBackup
+TESTS-TestSuites.xml
+*.db
+*/dat/out
+src/test/resources/accounts.local.csv
+
+.idea/
+org.sonarlint.eclipse.core.prefs
+
+# Cloned SUT — populated by deploy-local.sh / deploy-local.ps1
+.epi-climanuvem/*
