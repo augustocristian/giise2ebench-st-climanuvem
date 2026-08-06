@@ -1,0 +1,199 @@
+# puppeteer-python/.gitignore
+# Customized for: VS Code, Eclipse, IntelliJ IDEA, PyCharm, and Python/Poetry tooling.
+# Base generated from https://www.toptal.com/developers/gitignore/api/pycharm,python,visualstudiocode
+# with an Eclipse section added by hand (Eclipse has no first-party Python/PyDev template on toptal).
+
+######################
+# JetBrains (IntelliJ IDEA / PyCharm)
+######################
+# Covers JetBrains IDEs: IntelliJ, PyCharm, RubyMine, PhpStorm, AppCode, CLion, Android Studio, WebStorm, Rider
+# Reference: https://intellij-support.jetbrains.com/hc/en-us/articles/206544839
+
+# User-specific stuff
+.idea/**/workspace.xml
+.idea/**/tasks.xml
+.idea/**/usage.statistics.xml
+.idea/**/dictionaries
+.idea/**/shelf
+.idea/*
+
+# AWS User-specific
+.idea/**/aws.xml
+
+# Generated files
+.idea/**/contentModel.xml
+
+# Sensitive or high-churn files
+.idea/**/dataSources/
+.idea/**/dataSources.ids
+.idea/**/dataSources.local.xml
+.idea/**/sqlDataSources.xml
+.idea/**/dynamic.xml
+.idea/**/uiDesigner.xml
+.idea/**/dbnavigator.xml
+
+# Gradle and Maven with auto-import
+.idea/**/gradle.xml
+.idea/**/libraries
+
+# CMake
+cmake-build-*/
+
+# File-based project format
+*.iws
+*.ipr
+*.iml
+
+# IntelliJ
+out/
+.idea_modules/
+
+# JIRA plugin
+atlassian-ide-plugin.xml
+
+# SonarLint plugin
+.idea/**/sonarlint/
+.idea/sonarlint/
+
+# SonarQube Plugin
+.idea/**/sonarIssues.xml
+
+# Editor-based Rest Client
+.idea/httpRequests
+
+# Android studio 3.1+ serialized cache file
+.idea/caches/build_file_checksums.ser
+
+######################
+# Eclipse (incl. PyDev)
+######################
+.project
+.classpath
+.settings/
+.metadata/
+bin/
+tmp/
+*.tmp
+*.bak
+*.swp
+*~.nib
+local.properties
+.loadpath
+.recommenders/
+.externalToolBuilders/
+*.launch
+.pydevproject
+.cproject
+.buildpath
+.target
+.tern-project
+.texlipse
+.springBeans
+.factorypath
+.apt_generated
+.apt_generated_test
+.cache-main
+.scala_dependencies
+.worksheet
+
+######################
+# Visual Studio Code
+######################
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/*.code-snippets
+.history/
+*.vsix
+
+######################
+# Python
+######################
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+logs/
+
+# mypy / ruff / pyright
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.ruff_cache/
+pyrightconfig.json
+
+# pyenv
+# .python-version
+
+# Poetry
+# poetry.lock is intentionally kept under version control for a reproducible
+# test-runner environment (see README) — do not add it here.
+poetry.toml
+
+# Environments
+.env
+.env.*
+!.env.example
+.venv
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+######################
+# Puppeteer / pyppeteer
+######################
+# Local Chromium revision(s) downloaded by pyppeteer on first launch.
+.local-chromium/
+.pyppeteer/
+
+######################
+# Test suite output
+######################
+screenshots/
+*.local.csv
