@@ -1,0 +1,8 @@
+[flake8]
+extend-exclude = .venv
+max-line-length = 120
+# __init__.py files intentionally re-export names for a shorter public import path
+# (e.g. `from climanuvem.pages import WelcomePage`), matching example/sample/__init__.py.
+per-file-ignores =
+    climanuvem/common/__init__.py:F401
+    climanuvem/pages/__init__.py:F401
