@@ -1,0 +1,4 @@
+role,email,password,verified,description
+login_user,user@example.test,change-me,true,Cuenta existente para login
+profile_user,profile@example.test,change-me,true,Cuenta verificada para perfil
+unknown_user,missing@example.test,wrong-password,false,Cuenta inexistente para negativos
