@@ -1,0 +1,72 @@
+services:
+  db:
+    image: postgres:15
+    container_name: climanuvem_test_db
+    environment:
+      POSTGRES_USER: testuser
+      POSTGRES_PASSWORD: testpassword
+      POSTGRES_DB: climanuvem_test
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+    networks:
+      - climanuvem_test_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U testuser -d climanuvem_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    container_name: climanuvem_test_backend
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    environment:
+      - DATABASE_URL=postgresql://testuser:testpassword@db:5432/climanuvem_test
+      - TEST_MODE=true
+      - TEST_TOKEN=test-token-climanuvem
+      - TEST_USER_UID=test-user-e2e
+      - FIREBASE_KEY_PATH=
+      - DISABLE_WORKER=true
+      - OLLAMA_URL=http://localhost:11434/api/generate
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-gemma4:e4b}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - climanuvem_test_net
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Test clients (Selenium, Cypress, Puppeteer, Playwright, ...) run on the host machine, so
+        # localhost:8000 reaches the backend through Docker's port mapping.
+        - EXPO_PUBLIC_BACKEND_URL=http://localhost:8000
+        - EXPO_PUBLIC_DEFAULT_LANGUAGE=es
+        - EXPO_PUBLIC_TEST_MODE=true
+    container_name: climanuvem_test_frontend
+    ports:
+      - "5173:8081"
+    environment:
+      - EXPO_PUBLIC_BACKEND_URL=http://localhost:8000
+      - EXPO_PUBLIC_DEFAULT_LANGUAGE=es
+      - EXPO_PUBLIC_TEST_MODE=true
+      - EXPO_PUBLIC_FIREBASE_API_KEY=${EXPO_PUBLIC_FIREBASE_API_KEY:-AIzaSyBF74HV7abhxnYkcsxMpH5nsGTaWulJhRo}
+      - EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=${EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN:-climanuvem-47b82.firebaseapp.com}
+      - EXPO_PUBLIC_FIREBASE_PROJECT_ID=${EXPO_PUBLIC_FIREBASE_PROJECT_ID:-climanuvem-47b82}
+      - EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=${EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET:-climanuvem-47b82.firebasestorage.app}
+      - EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID:-404226456428}
+      - EXPO_PUBLIC_FIREBASE_APP_ID=${EXPO_PUBLIC_FIREBASE_APP_ID:-1:404226456428:web:3fabae5ed71071449f1149}
+      - EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID=${EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID:-G-N0V5DZHV7N}
+      - CI=1
+    depends_on:
+      - backend
+    networks:
+      - climanuvem_test_net
+
+networks:
+  climanuvem_test_net:
+
+volumes:
+  postgres_test_data:
