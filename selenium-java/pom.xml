@@ -1,0 +1,199 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<groupId>epigijon.climanuvem</groupId>
+	<artifactId>retorch-st-climanuvem</artifactId>
+	<version>1.0.0-SNAPSHOT</version>
+	<packaging>jar</packaging>
+
+	<name>retorch-st-climanuvem</name>
+	<description>End-to-end test suite for EPI-ClimaNuvem using the RETORCH framework</description>
+	<url>https://gitlab.com/HP-SCDS/Observatorio/2025-2026/climanuvem</url>
+	<organization>
+		<name>EPI Gijón - Universidad de Oviedo, ES</name>
+		<url>https://ingenieria.uniovi.es/</url>
+	</organization>
+
+	<properties>
+		<maven.compiler.release>11</maven.compiler.release>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+		<slf4j-api.version>2.0.18</slf4j-api.version>
+
+		<log4j-slf4j2.version>2.26.0</log4j-slf4j2.version>
+
+		<surefire.version>3.5.5</surefire.version>
+
+		<junit-jupiter-api.version>6.0.3</junit-jupiter-api.version>
+
+		<selenium-java.version>4.44.0</selenium-java.version>
+
+		<retorch-tool.version>1.2.0</retorch-tool.version>
+
+	</properties>
+
+	<dependencies>
+		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>slf4j-api</artifactId>
+			<version>${slf4j-api.version}</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.logging.log4j</groupId>
+			<artifactId>log4j-slf4j2-impl</artifactId>
+			<version>${log4j-slf4j2.version}</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter-api</artifactId>
+			<version>${junit-jupiter-api.version}</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter-params</artifactId>
+			<version>${junit-jupiter-api.version}</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.seleniumhq.selenium</groupId>
+			<artifactId>selenium-java</artifactId>
+			<version>${selenium-java.version}</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>io.github.giis-uniovi</groupId>
+			<artifactId>retorch-annotations</artifactId>
+			<version>${retorch-tool.version}</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>io.github.giis-uniovi</groupId>
+			<artifactId>retorch-orchestration</artifactId>
+			<version>${retorch-tool.version}</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.httpcomponents</groupId>
+			<artifactId>httpclient</artifactId>
+			<version>4.5.14</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.httpcomponents</groupId>
+			<artifactId>httpmime</artifactId>
+			<version>4.5.14</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>com.google.code.gson</groupId>
+			<artifactId>gson</artifactId>
+			<version>2.14.0</version>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<!-- Each TJob writes to its own subdirectory so parallel CI runs do not overwrite each other.
+		     Falls back to 'target/local' when TJOB_NAME is not set (local-execution profile). -->
+		<directory>${project.basedir}/target/${TJOB_NAME}</directory>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<version>${surefire.version}</version>
+				<configuration>
+					<testFailureIgnore>true</testFailureIgnore>
+					<redirectTestOutputToFile>true</redirectTestOutputToFile>
+					<!-- Required to avoid JVM crash on Linux Jenkins agents with OpenJDK -->
+					<useSystemClassLoader>false</useSystemClassLoader>
+					<skipTests>${skipTests}</skipTests>
+				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-report-plugin</artifactId>
+				<version>${surefire.version}</version>
+				<executions>
+					<execution>
+						<id>ut-reports</id>
+						<phase>test</phase>
+						<goals>
+							<goal>report-only</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-antrun-plugin</artifactId>
+				<version>3.2.0</version>
+				<executions>
+					<execution>
+						<id>junit-reports</id>
+						<phase>test</phase>
+						<configuration>
+							<target unless="skipTests">
+								<junitreport>
+									<fileset dir="${project.build.directory}/surefire-reports" erroronmissingdir="false">
+										<include name="**/*.xml" />
+									</fileset>
+									<report format="frames"   todir="${project.reporting.outputDirectory}/junit-frames" />
+									<report format="noframes" todir="${project.reporting.outputDirectory}/junit-noframes" />
+								</junitreport>
+							</target>
+						</configuration>
+						<goals>
+							<goal>run</goal>
+						</goals>
+					</execution>
+				</executions>
+				<dependencies>
+					<dependency>
+						<groupId>org.apache.ant</groupId>
+						<artifactId>ant-junit</artifactId>
+						<version>1.10.17</version>
+					</dependency>
+					<dependency>
+						<groupId>org.apache.ant</groupId>
+						<artifactId>ant-trax</artifactId>
+						<version>1.8.0</version>
+					</dependency>
+				</dependencies>
+			</plugin>
+		</plugins>
+	</build>
+
+	<developers>
+		<developer>
+			<name>Cristian Augusto</name>
+			<url>http://augustocristian.es</url>
+		</developer>
+	</developers>
+	<licenses>
+		<license>
+			<name>Apache-2.0</name>
+			<url>https://www.apache.org/licenses/LICENSE-2.0</url>
+		</license>
+	</licenses>
+	<scm>
+		<url>https://gitlab.com/HP-SCDS/Observatorio/2025-2026/climanuvem/epi-climanuvem</url>
+	</scm>
+
+	<profiles>
+		<profile>
+			<!-- Activated automatically when TJOB_NAME is not passed as a -D property,
+			     i.e. during local IDE or command-line runs outside of CI. -->
+			<id>local-execution</id>
+			<activation>
+				<property>
+					<name>!TJOB_NAME</name>
+				</property>
+			</activation>
+			<properties>
+				<TJOB_NAME>local</TJOB_NAME>
+			</properties>
+		</profile>
+	</profiles>
+</project>
