@@ -45,7 +45,11 @@ Mobile app that analyzes cloud photos and generates a short-term local forecast.
 
 ### Backend (`sut/backend/app/`)
 
-Layered: `presentation/` (routes, `test_routes.py` only when `TEST_MODE=true`, Firebase bearer-token auth dependency) → `business/` (`analysis_service.py`, `auth_service.py`, `worker.py`'s `analysis_worker` loop) → `data/` (`analysis_repository.py` over SQLAlchemy) → `infrastructure/` (`config.py`'s `Settings`/`get_settings()`, DB engine/session/bootstrap/Alembic migrations, `firebase_service.py`, `ollama_client.py`, `queue.py`, `prompts/*.j2`). `main.py` is the FastAPI app factory (lifespan bootstraps DB + worker, `DISABLE_WORKER` to opt out; mounts `/uploads`, CORS from `CORS_ALLOW_ORIGINS`, `GET /ping`/`GET /`).
+Layered: `presentation/` (routes, `test_routes.py` only when `TEST_MODE=true`, Firebase bearer-token auth dependency) → `business/` (`analysis_service.py`, `auth_service.py`, `worker.py`'s `analysis_worker` loop) → `data/` (`analysis_repository.py` over SQLAlchemy) → `infrastructure/` (`config.py`'s `Settings`/`get_settings()`, DB engine/session/bootstrap/Alembic migrations, `firebase_service.py`, `ollama_client.py`, `queue.py`, `prompts/*.j2`). `main.py` is the FastAPI app factory (lifespan bootstraps DB + worker, `DISABLE_WORKER` to opt out; CORS from `CORS_ALLOW_ORIGINS`; everything lives under `/api/v1`).
+
+#### REST API (`/api/v1`)
+
+Plural resource `analyses`, camelCase JSON, integer ids, errors as `application/problem+json` with a machine-code `detail`. `POST /analyses` (multipart; 202 + `Location`), `GET /analyses` (`page`/`size`, `X-Total-Count`), `GET /analyses/{id}`, `GET /analyses/{id}/image` (authenticated JPEG; there is no public `/uploads`), `PATCH /analyses/{id}` (`{"status":"cancelled"}`; 409 if not `analyzing`), `DELETE /analyses/{id}` and `DELETE /analyses` (204), plus `GET /ping`, `GET /` and (test mode) `GET /test`. Missing credentials → 401. 405 responses carry a full `Allow` header. Contract tests live in `selenium-java` (`TestApi*`) and `cypress-js` (`cypress/e2e/api`).
 
 Tests in `sut/backend/tests/` (pytest, one file per module). Managed with [Poetry](https://python-poetry.org/) (`pyproject.toml` + `poetry.lock`); run `poetry run pytest` from `sut/backend/`; config under `[tool.pytest.ini_options]`; coverage → `coverage.xml` (SonarCloud).
 
@@ -95,7 +99,8 @@ Pipeline order: unit/integration tests → SonarCloud (the gate) → Docker imag
 4. **`sonarcloud`** — needs 2+3. Regenerates coverage, runs `SonarSource/sonarqube-scan-action` (`projectBaseDir: sut`), skipped for `dependabot[bot]`; scan step skipped with a `::warning` when `SONAR_TOKEN` is empty.
 5. **`docker-images`** — gated only by `sonarcloud` (4). Matrix builds `sut/backend`, `sut/frontend` (test-mode build args) and `sut/firebase-emulator` with Buildx + GHA cache; uploads `docker save` tarballs (`image-*`).
 6. **`e2e-selenium-java`** — needs 5. Loads the tarballs, starts the layered stack via `selenium-java/scripts/sut-compose.sh up --no-build` (prod `sut/backend/docker-compose.yml` + `docker-compose.dev.override.yml` + `selenium-java/docker-compose.test.override.yml`), seeds Firebase-emulator accounts (`seed-firebase-emulator.sh`), `mvn test -DCI=true -DtestFailureIgnore=false`, archives surefire reports. No Firebase secrets needed.
-7. **`e2e-playwright-csharp`, `e2e-cypress-javascript`, `e2e-puppeteer-python`** — needs 5; **placeholders** (checkout + TODO echo).
+7. **`e2e-cypress-javascript`** — needs 5. Same layered stack as step 6; seeds emulator accounts into `cypress-js/cypress/fixtures/accounts.local.csv`, `npm ci` + `npx cypress install`, `npm run lint`, `npm test` (API + system specs), uploads screenshots/videos.
+7b. **`e2e-playwright-csharp`, `e2e-puppeteer-python`** — needs 5; **placeholders** (checkout + TODO echo); their suites live on separate branches.
 8. **`publish-images`** — needs 6+7, only on push to `main`/tags. Loads the tarballs and pushes `ghcr.io/<repo>/{backend,frontend,firebase-emulator}:<ref>` and `:<sha>`.
 9. **`deploy-docs`** — only on push to `main`/tag. Sphinx → GitHub Pages.
 10. **`android-release-apk`** — gated only by `sonarcloud` (plus `changes`, used just as a path filter); on `frontend/` change to `main`, or manual dispatch with `build_android=true`. Signed APK as artifact + GitHub Release.

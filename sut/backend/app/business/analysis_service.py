@@ -21,32 +21,32 @@ class AnalysisService:
                 explainability,
                 file_path,
             )
-            # 1. Leer imagen y convertir a base64
+            # 1. Read image and convert to base64
             async with await anyio.open_file(file_path, "rb") as f:
                 content = await f.read()
                 img_b64 = base64.b64encode(content).decode('utf-8')
             
-            # 2. Llamada a Ollama (Paso 1: Clasificación Simple)
+            # 2. Call Ollama (Step 1: simple classification)
             predictions = await self.ollama_client.analyze_image(img_b64)
             
-            # 3. Paso 2: Explicabilidad (si aplica)
+            # 3. Step 2: Explainability (if applicable)
             if explainability and predictions and any(p.get('label') != 'no_cloud' for p in predictions):
                 try:
                     labels = [p['label'] for p in predictions if p.get('label') != 'no_cloud']
                     boxes = await self.ollama_client.get_explainability_boxes(img_b64, labels)
                     
-                    # Combinar cajas con predicciones
+                    # Merge boxes with predictions
                     for pred in predictions:
                         label = pred.get('label')
-                        # Buscar la caja correspondiente
+                        # Find the matching box
                         box_match = next((b.get('box_2d') for b in boxes if b.get('label') == label), None)
                         if box_match:
                             pred['box_2d'] = box_match
                 except Exception as e:
                     logger.warning("Explainability failed for analysis_id=%s: %s", analysis_id, e)
-                    # Continuamos con las predicciones sin cajas si falla el segundo paso
+                    # Continue with predictions without boxes if the second step fails
             
-            # 4. Guardar resultados y actualizar estado a completado exitosamente
+            # 4. Save results and mark the analysis as completed
             self.repository.save_cloud_analysis(analysis_id, predictions)
             self.repository.update_status(analysis_id, 'completed')
             logger.info("Analysis completed successfully for analysis_id=%s", analysis_id)
@@ -54,7 +54,7 @@ class AnalysisService:
             
         except Exception as e:
             logger.exception("Error processing analysis_id=%s: %s", analysis_id, e)
-            # 5. En caso de error, marcar como cancelado
+            # 5. On error, mark as cancelled
             self.repository.update_status(analysis_id, 'cancelled')
             self._send_notification(fcm_token, analysis_id, "Error en el Análisis", "Hubo un problema al procesar tu imagen. Abre para más detalles.")
 

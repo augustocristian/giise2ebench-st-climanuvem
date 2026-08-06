@@ -3,7 +3,7 @@ import i18n from '@/src/i18n';
 export const EMAIL_REGEX = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
 
 /**
- * Traduce los códigos de error de Firebase a mensajes amigables e internacionalizados.
+ * Translates Firebase error codes into friendly, internationalized messages.
  */
 export function getAuthErrorMessage(errorCode: string): string {
   const key = errorCode.split('/')[1];

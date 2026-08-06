@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from types import SimpleNamespace
 
 import pytest
@@ -6,6 +6,7 @@ from fastapi import HTTPException
 
 from app.presentation.routes.analysis_routes import (
     router,
+    _format_utc,
     _validate_uploaded_jpeg,
     _initialize_analysis_record,
     _update_analysis_results,
@@ -22,12 +23,12 @@ def test_initialize_analysis_record_uses_defaults_for_missing_values():
         image_path=None,
     )
 
-    record = _initialize_analysis_record(row, "12")
+    record = _initialize_analysis_record(row, 12)
 
-    assert record["id"] == "12"
+    assert record["id"] == 12
     assert record["date"] is None
     assert record["location"] == "Ubicación desconocida"
-    assert record["imageUrl"] is None
+    assert record["imageUrl"] == "/api/v1/analyses/12/image"
     assert record["results"] == {
         "cloudTypes": [],
         "cloudDetails": [],
@@ -87,7 +88,7 @@ def test_validate_uploaded_jpeg_rejects_empty_file():
     with pytest.raises(HTTPException) as exc_info:
         _validate_uploaded_jpeg(file, b"")
 
-    assert exc_info.value.status_code == 400
+    assert exc_info.value.status_code == 422
     assert exc_info.value.detail == "IMAGE_EMPTY"
 
 
@@ -97,7 +98,7 @@ def test_validate_uploaded_jpeg_rejects_non_jpg_file():
     with pytest.raises(HTTPException) as exc_info:
         _validate_uploaded_jpeg(file, b"not-a-jpeg-image")
 
-    assert exc_info.value.status_code == 400
+    assert exc_info.value.status_code == 415
     assert exc_info.value.detail == "INVALID_IMAGE_FORMAT_JPG_ONLY"
 
 
@@ -107,12 +108,14 @@ def test_validate_uploaded_jpeg_accepts_jpg_signature_extension_and_content_type
     _validate_uploaded_jpeg(file, b"\xff\xd8\xff\xe0valid-jpeg-like-content")
 
 
-def test_cancel_get_requires_auth_and_documents_method_not_allowed_response():
-    route = next(
-        route
-        for route in router.routes
-        if route.path == "/{analysis_id}/cancel" and "GET" in route.methods
-    )
+def test_no_hand_written_405_handlers():
+    assert not any(405 in route.responses for route in router.routes)
+    assert not any(route.path.endswith("/cancel") or route.path == "/upload" for route in router.routes)
 
-    assert route.responses[405]["description"] == "Method Not Allowed"
-    assert route.dependant.dependencies
+
+def test_format_utc_handles_naive_string_and_aware_values():
+    assert _format_utc(None) is None
+    assert _format_utc(datetime(2026, 1, 2, 3, 4, 5)) == "2026-01-02T03:04:05Z"
+    assert _format_utc("2026-01-02 03:04:05.123456") == "2026-01-02T03:04:05.123456Z"
+    aware = datetime(2026, 1, 2, 5, 4, 5, tzinfo=timezone(timedelta(hours=2)))
+    assert _format_utc(aware) == "2026-01-02T03:04:05Z"

@@ -196,6 +196,29 @@ WelcomePage back    = home.clickLogout();
 
 ---
 
+## API under test
+
+Every endpoint lives under `/api/v1` (the unversioned `/ping`, `/`, `/test` and the public `/uploads` mount return `404`).
+Analysis endpoints, the image endpoint and `GET /api/v1/test` (test mode only) require `Authorization: Bearer <token>`
+(a missing header returns `401 NOT_AUTHENTICATED`).
+
+| Method and path | Success | Errors asserted by the suite |
+|---|---|---|
+| `POST /api/v1/analyses` (multipart: `file`, `location`, `latitude`, `longitude`, `fcmToken`, `includeExplainability`) | `202`, `Location: /api/v1/analyses/{id}`, body `{"id", "status": "analyzing"}` | `422 IMAGE_EMPTY`, `413 IMAGE_TOO_LARGE_MAX_5MB`, `415 INVALID_IMAGE_FORMAT_JPG_ONLY`, `422` missing file |
+| `GET /api/v1/analyses?page=&size=` | `200` array (newest first), `X-Total-Count` header | `422` for `page<0`, `size` outside 1..100 |
+| `GET /api/v1/ping`, `GET /api/v1/` (also `/api/v1`) | `200` `{"ping":"pong"}` / `{"service":"ClimaNuvem API","status":"ok"}`, no auth | legacy `GET /ping` -> `404` |
+| `GET /api/v1/test` (test mode) | `200` `{"message","user"}` | `401` without token |
+| `GET /api/v1/analyses/{id}` | `200` analysis object; `imageUrl` = `/api/v1/analyses/{id}/image` | `404 ANALYSIS_NOT_FOUND` |
+| `PATCH /api/v1/analyses/{id}` body `{"status": "cancelled"}` | `200` updated object | `404`, `409 ANALYSIS_NOT_CANCELLABLE`, `422` other status |
+| `GET /api/v1/analyses/{id}/image` | `200` `image/jpeg` (bytes start `FF D8 FF`), owner only | `401 NOT_AUTHENTICATED`, `404 ANALYSIS_NOT_FOUND`; `GET /uploads/x.jpg` -> `404` |
+| `DELETE /api/v1/analyses/{id}` | `204`, empty body | `404 ANALYSIS_NOT_FOUND` |
+| `DELETE /api/v1/analyses` | `204`, empty body | - |
+
+Unsupported methods return `405` with an `Allow` header listing every method of the path (`GET, POST, DELETE` on the collection; `GET, PATCH, DELETE` on `/{id}`). Errors are
+`application/problem+json` with `status` and a machine-code `detail`.
+
+---
+
 ## Test mode
 
 The backend is started with `TEST_MODE=true` and `DISABLE_WORKER=true` (see `docker-compose.test.override.yml`):

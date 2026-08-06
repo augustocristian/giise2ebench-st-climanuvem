@@ -20,7 +20,7 @@ import {
 export const useCapture = () => {
   const { t } = useTranslation();
   
-  // Estado para explicabilidad
+  // State for explainability
   const [includeExplainability, setIncludeExplainability] = useState(false);
   const { modalVisible, modalConfig, showModal, hideModal } = useStatusModal();
 
@@ -70,7 +70,7 @@ export const useCapture = () => {
         return false;
       }
     } catch (error) {
-      Logger.warn('No se pudo validar el tamaño de la imagen antes de subirla', error);
+      Logger.warn('Could not validate image size before uploading', error);
     }
     return true;
   };
@@ -137,9 +137,10 @@ export const useCapture = () => {
       if (message === IMAGE_TOO_LARGE_CODE) {
         showModal('error', t('common.error'), t('capture.imageTooLarge'));
       } else {
-        showModal('error', t('common.error'), message || t('capture.uploadError'));
+        // Backend errors are machine codes (e.g. IMAGE_EMPTY, INVALID_IMAGE_FORMAT_JPG_ONLY); show the generic text.
+        showModal('error', t('common.error'), t('capture.uploadError'));
       }
-      Logger.error('Error al subir imagen para análisis', error);
+      Logger.error('Error uploading image for analysis', error);
     }
   };
 

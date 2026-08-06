@@ -14,59 +14,53 @@ import java.util.List;
  */
 public class RegisterPage extends BasePage {
 
-    private static final By USERNAME_INPUT         = inputByPlaceholder("Nombre de usuario");
-    private static final By EMAIL_INPUT            = inputByPlaceholder("Correo electrónico");
-    private static final By PASSWORD_INPUT         = inputByPlaceholder("Contraseña");
-    private static final By CONFIRM_PASSWORD_INPUT = inputByPlaceholder("Confirmar contraseña");
+    private static final By USERNAME_INPUT         = inputByPlaceholder("Username");
+    private static final By EMAIL_INPUT            = inputByPlaceholder("Email address");
+    private static final By PASSWORD_INPUT         = inputByPlaceholder("Password");
+    private static final By CONFIRM_PASSWORD_INPUT = inputByPlaceholder("Confirm password");
     private static final By ALL_INPUTS             = By.cssSelector("input");
-    private static final By LOGIN_LINK             = byPartialText("Inicia sesión");
+    private static final By LOGIN_LINK             = byPartialText("Log in");
     private static final By SUBMIT_BUTTONS         = By.xpath(
             "//*[@role='button' or self::button or @tabindex]"
                     + "[contains(translate(normalize-space(.),"
-                    + "'ABCDEFGHIJKLMNOPQRSTUVWXYZÁÉÍÓÚÜÑ',"
-                    + "'abcdefghijklmnopqrstuvwxyzáéíóúüñ'), 'registr')"
+                    + "'ABCDEFGHIJKLMNOPQRSTUVWXYZ',"
+                    + "'abcdefghijklmnopqrstuvwxyz'), 'register')"
                     + " or contains(translate(normalize-space(.),"
-                    + "'ABCDEFGHIJKLMNOPQRSTUVWXYZÁÉÍÓÚÜÑ',"
-                    + "'abcdefghijklmnopqrstuvwxyzáéíóúüñ'), 'crear')]");
-    private static final By HOME_MARKER            = byPartialText("Bienvenido");
+                    + "'ABCDEFGHIJKLMNOPQRSTUVWXYZ',"
+                    + "'abcdefghijklmnopqrstuvwxyz'), 'create')]");
+    private static final By HOME_MARKER            = byPartialText("Welcome!");
     private static final By VERIFY_EMAIL_DIALOG    = By.xpath(
             "//*[contains(translate(normalize-space(.),"
-                    + "'ABCDEFGHIJKLMNOPQRSTUVWXYZÁÉÍÓÚÜÑ',"
-                    + "'abcdefghijklmnopqrstuvwxyzáéíóúüñ'), 'verific')"
+                    + "'ABCDEFGHIJKLMNOPQRSTUVWXYZ',"
+                    + "'abcdefghijklmnopqrstuvwxyz'), 'verify')"
                     + " and contains(translate(normalize-space(.),"
-                    + "'ABCDEFGHIJKLMNOPQRSTUVWXYZÁÉÍÓÚÜÑ',"
-                    + "'abcdefghijklmnopqrstuvwxyzáéíóúüñ'), 'correo')]");
+                    + "'ABCDEFGHIJKLMNOPQRSTUVWXYZ',"
+                    + "'abcdefghijklmnopqrstuvwxyz'), 'email')]");
     private static final By REGISTER_FEEDBACK      = By.xpath(
             "//*[contains(translate(normalize-space(.),"
-                    + "'ABCDEFGHIJKLMNOPQRSTUVWXYZÁÉÍÓÚÜÑ',"
-                    + "'abcdefghijklmnopqrstuvwxyzáéíóúüñ'), 'error')"
+                    + "'ABCDEFGHIJKLMNOPQRSTUVWXYZ',"
+                    + "'abcdefghijklmnopqrstuvwxyz'), 'error')"
                     + " or contains(translate(normalize-space(.),"
-                    + "'ABCDEFGHIJKLMNOPQRSTUVWXYZÁÉÍÓÚÜÑ',"
-                    + "'abcdefghijklmnopqrstuvwxyzáéíóúüñ'), 'inválid')"
+                    + "'ABCDEFGHIJKLMNOPQRSTUVWXYZ',"
+                    + "'abcdefghijklmnopqrstuvwxyz'), 'invalid')"
                     + " or contains(translate(normalize-space(.),"
-                    + "'ABCDEFGHIJKLMNOPQRSTUVWXYZÁÉÍÓÚÜÑ',"
-                    + "'abcdefghijklmnopqrstuvwxyzáéíóúüñ'), 'invalid')"
+                    + "'ABCDEFGHIJKLMNOPQRSTUVWXYZ',"
+                    + "'abcdefghijklmnopqrstuvwxyz'), 'password')"
                     + " or contains(translate(normalize-space(.),"
-                    + "'ABCDEFGHIJKLMNOPQRSTUVWXYZÁÉÍÓÚÜÑ',"
-                    + "'abcdefghijklmnopqrstuvwxyzáéíóúüñ'), 'contraseña')"
+                    + "'ABCDEFGHIJKLMNOPQRSTUVWXYZ',"
+                    + "'abcdefghijklmnopqrstuvwxyz'), 'email')"
                     + " or contains(translate(normalize-space(.),"
-                    + "'ABCDEFGHIJKLMNOPQRSTUVWXYZÁÉÍÓÚÜÑ',"
-                    + "'abcdefghijklmnopqrstuvwxyzáéíóúüñ'), 'correo')"
+                    + "'ABCDEFGHIJKLMNOPQRSTUVWXYZ',"
+                    + "'abcdefghijklmnopqrstuvwxyz'), 'username')"
                     + " or contains(translate(normalize-space(.),"
-                    + "'ABCDEFGHIJKLMNOPQRSTUVWXYZÁÉÍÓÚÜÑ',"
-                    + "'abcdefghijklmnopqrstuvwxyzáéíóúüñ'), 'usuario')"
+                    + "'ABCDEFGHIJKLMNOPQRSTUVWXYZ',"
+                    + "'abcdefghijklmnopqrstuvwxyz'), 'match')"
                     + " or contains(translate(normalize-space(.),"
-                    + "'ABCDEFGHIJKLMNOPQRSTUVWXYZÁÉÍÓÚÜÑ',"
-                    + "'abcdefghijklmnopqrstuvwxyzáéíóúüñ'), 'coincid')"
+                    + "'ABCDEFGHIJKLMNOPQRSTUVWXYZ',"
+                    + "'abcdefghijklmnopqrstuvwxyz'), 'in use')"
                     + " or contains(translate(normalize-space(.),"
-                    + "'ABCDEFGHIJKLMNOPQRSTUVWXYZÁÉÍÓÚÜÑ',"
-                    + "'abcdefghijklmnopqrstuvwxyzáéíóúüñ'), 'uso')"
-                    + " or contains(translate(normalize-space(.),"
-                    + "'ABCDEFGHIJKLMNOPQRSTUVWXYZÁÉÍÓÚÜÑ',"
-                    + "'abcdefghijklmnopqrstuvwxyzáéíóúüñ'), 'obligatorio')"
-                    + " or contains(translate(normalize-space(.),"
-                    + "'ABCDEFGHIJKLMNOPQRSTUVWXYZÁÉÍÓÚÜÑ',"
-                    + "'abcdefghijklmnopqrstuvwxyzáéíóúüñ'), 'requerid')]");
+                    + "'ABCDEFGHIJKLMNOPQRSTUVWXYZ',"
+                    + "'abcdefghijklmnopqrstuvwxyz'), 'required')]");
     private final String frontendUrl;
 
     public RegisterPage(WebDriver driver, String frontendUrl) {

@@ -388,7 +388,7 @@ jobs:
             context: sut/frontend
             build_args: |
               EXPO_PUBLIC_BACKEND_URL=http://localhost:8000
-              EXPO_PUBLIC_DEFAULT_LANGUAGE=es
+              EXPO_PUBLIC_DEFAULT_LANGUAGE=en
               EXPO_PUBLIC_TEST_MODE=true
           - name: firebase-emulator
             context: sut/firebase-emulator
@@ -449,7 +449,7 @@ jobs:
 
       - name: Wait for backend, frontend and Firebase emulator
         run: |
-          for service in "http://localhost:8000/ping" "http://localhost:5173" "http://localhost:9099"; do
+          for service in "http://localhost:8000/api/v1/ping" "http://localhost:5173" "http://localhost:9099"; do
             for _ in $(seq 1 60); do
               if curl --silent --fail --output /dev/null "$service"; then continue 2; fi
               sleep 5
@@ -473,6 +473,10 @@ jobs:
       - name: Run tests
         working-directory: selenium-java
         run: mvn --batch-mode test -DCI=true -DtestFailureIgnore=false
+
+      - name: Publish test summary
+        if: always()
+        run: python3 .github/scripts/junit-summary.py "Selenium (Java) test results" "selenium-java/target/local/surefire-reports/TEST-*.xml" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Show container logs on failure
         if: failure()
@@ -507,18 +511,91 @@ jobs:
           echo "TODO: implement the Playwright + C# E2E suite for this stage."
 
   e2e-cypress-javascript:
-    name: "E2E: Cypress (JavaScript) [placeholder]"
+    name: "E2E: Cypress (JavaScript)"
     runs-on: ubuntu-latest
     needs: docker-images
     permissions:
       contents: read
+    env:
+      BACKEND_IMAGE: climanuvem-backend:test
+      FRONTEND_IMAGE: climanuvem-frontend:test
+      FIREBASE_EMULATOR_IMAGE: climanuvem-firebase-emulator:test
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Placeholder
+      - name: Download images
+        uses: actions/download-artifact@v8
+        with:
+          pattern: image-*
+          path: ${{ runner.temp }}/images
+          merge-multiple: true
+
+      - name: Load images
         run: |
-          echo "TODO: implement the Cypress + JavaScript E2E suite for this stage."
+          for image in "$RUNNER_TEMP"/images/*.tar; do docker load --input "$image"; done
+
+      - name: Start the SUT (prod compose + dev override + test override)
+        run: bash selenium-java/scripts/sut-compose.sh up --detach --no-build db firebase-emulator backend frontend
+
+      - name: Wait for backend, frontend and Firebase emulator
+        run: |
+          for service in "http://localhost:8000/api/v1/ping" "http://localhost:5173" "http://localhost:9099"; do
+            for _ in $(seq 1 60); do
+              if curl --silent --fail --output /dev/null "$service"; then continue 2; fi
+              sleep 5
+            done
+            echo "::error::$service did not become ready"
+            bash selenium-java/scripts/sut-compose.sh logs
+            exit 1
+          done
+
+      - name: Seed Firebase emulator accounts
+        run: ACCOUNTS_FILE="$PWD/cypress-js/cypress/fixtures/accounts.local.csv" bash selenium-java/scripts/seed-firebase-emulator.sh
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: cypress-js/package-lock.json
+
+      - name: Install dependencies
+        working-directory: cypress-js
+        run: |
+          npm ci
+          npx cypress install
+
+      - name: Lint
+        working-directory: cypress-js
+        run: npm run lint
+
+      - name: Run Cypress (API + system)
+        working-directory: cypress-js
+        run: npx cypress run --reporter junit --reporter-options "mochaFile=cypress/results/results-[hash].xml"
+
+      - name: Publish test summary
+        if: always()
+        run: python3 .github/scripts/junit-summary.py "Cypress (JavaScript) test results" "cypress-js/cypress/results/*.xml" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Show container logs on failure
+        if: failure()
+        run: bash selenium-java/scripts/sut-compose.sh logs
+
+      - name: Archive Cypress screenshots and videos
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: cypress-results
+          path: |
+            cypress-js/cypress/results
+            cypress-js/cypress/screenshots
+            cypress-js/cypress/videos
+          if-no-files-found: ignore
+
+      - name: Tear down
+        if: always()
+        run: bash selenium-java/scripts/sut-compose.sh down --volumes
 
   e2e-puppeteer-python:
     name: "E2E: Puppeteer (Python) [placeholder]"

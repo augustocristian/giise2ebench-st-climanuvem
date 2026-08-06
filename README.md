@@ -2,12 +2,6 @@
 
 <p align="center"><img src="img/hero-climanuvem.svg" alt="ClimaNuvem home screen (guest session) with quick actions Analyze Image, History and Log Out, shown in a desktop browser and on a phone" width="900"/></p>
 
----
-
-<p align="center">
-  <a href="https://giis.uniovi.es/"><img src="img/giis-footer.svg" alt="GIIS - Software Engineering Research Group, University of Oviedo" height="28"/></a>
-</p>
-
 ## Deployment
 
 The SUT lives in [`sut/`](sut/). Backend services are defined in [`sut/backend/docker-compose.yml`](sut/backend/docker-compose.yml) (production layout); [`docker-compose.dev.override.yml`](sut/backend/docker-compose.dev.override.yml) overrides only what changes in development.
@@ -75,4 +69,10 @@ To run the Expo dev server outside Docker, set `EXPO_PUBLIC_FIREBASE_AUTH_EMULAT
 
 ### System tests
 
-[`selenium-java/`](selenium-java/) runs against the same stack (base + dev override + a test override) with the emulator; see its README.
+[`selenium-java/`](selenium-java/) and [`cypress-js/`](cypress-js/) run against the same stack (base + dev override + a test override) with the emulator; see their READMEs.
+
+---
+
+<p align="center">
+  <a href="https://giis.uniovi.es/"><img src="img/giis-footer.svg" alt="GIIS - Software Engineering Research Group, University of Oviedo" height="28"/></a>
+</p>

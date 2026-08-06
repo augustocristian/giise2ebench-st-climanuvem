@@ -36,7 +36,7 @@ import java.util.stream.Stream;
  *   <li>{@link #onWelcomePage()} — navigates to the root URL and returns a
  *       {@link WelcomePage}, which waits internally until the page is ready.</li>
  *   <li>{@link #loginAsGuest()} — convenience shortcut that clicks
- *       "Continuar como invitado" and returns a {@link HomePage}.</li>
+ *       "Continue as guest" and returns a {@link HomePage}.</li>
  * </ul>
  * <p>
  * Set {@code -DCI=true} (or the {@code CI} env var) for headless Chrome in CI.
@@ -108,7 +108,7 @@ public class BaseLoggedClass {
     }
 
     /**
-     * Clicks "Continuar como invitado" on the Welcome screen and returns a
+     * Clicks "Continue as guest" on the Welcome screen and returns a
      * {@link HomePage} once the Home screen has finished loading.
      * Firebase anonymous auth is invoked; the backend accepts the resulting
      * token because {@code TEST_MODE=true} accepts any Bearer token.

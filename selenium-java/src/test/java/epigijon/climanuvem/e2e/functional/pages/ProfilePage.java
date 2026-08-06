@@ -12,44 +12,31 @@ import java.util.List;
  */
 public class ProfilePage extends BasePage {
 
-    private static final By PROFILE_TITLE = anyText("Mi Perfil", "My Profile");
-    private static final By GUEST_PREFS = anyText("Preferencias de invitado", "Guest preferences");
-    private static final By USERNAME_SECTION = anyText("Nombre de usuario", "Username");
-    private static final By DELETE_ACCOUNT = anyInteractiveText("Eliminar Cuenta", "Delete Account");
-    private static final By CONFIRM_DELETE = anyInteractiveText("Sí, eliminar", "Yes, delete");
-    private static final By CANCEL = anyInteractiveText("Cancelar", "Cancel");
+    private static final By PROFILE_TITLE = anyText("My Profile");
+    private static final By GUEST_PREFS = anyText("Guest preferences");
+    private static final By USERNAME_SECTION = anyText("Username");
+    private static final By DELETE_ACCOUNT = anyInteractiveText("Delete Account");
+    private static final By CONFIRM_DELETE = anyInteractiveText("Yes, delete");
+    private static final By CANCEL = anyInteractiveText("Cancel");
     private static final By ACCEPT = By.xpath("//*[@role='button' or self::button or @tabindex]"
-            + "[contains(normalize-space(.),'Aceptar')"
-            + " or contains(normalize-space(.),'Accept')"
+            + "[contains(normalize-space(.),'Accept')"
             + " or contains(normalize-space(.),'OK')]");
     private static final By USERNAME_INPUT = By.cssSelector(
-            "input[placeholder='Escribe tu nombre'],input[placeholder='Enter your name']");
-    private static final By SAVE_BUTTON = anyInteractiveText("Guardar Cambios", "Save Changes");
+            "input[placeholder='Enter your name']");
+    private static final By SAVE_BUTTON = anyInteractiveText("Save Changes");
     private static final By STATUS_FEEDBACK = By.xpath(
             "//*[contains(translate(normalize-space(.),"
-                    + "'ABCDEFGHIJKLMNOPQRSTUVWXYZÁÉÍÓÚÜÑ',"
-                    + "'abcdefghijklmnopqrstuvwxyzáéíóúüñ'), 'perfil actualizado')"
+                    + "'ABCDEFGHIJKLMNOPQRSTUVWXYZ',"
+                    + "'abcdefghijklmnopqrstuvwxyz'), 'profile updated')"
                     + " or contains(translate(normalize-space(.),"
-                    + "'ABCDEFGHIJKLMNOPQRSTUVWXYZÁÉÍÓÚÜÑ',"
-                    + "'abcdefghijklmnopqrstuvwxyzáéíóúüñ'), 'profile updated')"
+                    + "'ABCDEFGHIJKLMNOPQRSTUVWXYZ',"
+                    + "'abcdefghijklmnopqrstuvwxyz'), 'security failure')"
                     + " or contains(translate(normalize-space(.),"
-                    + "'ABCDEFGHIJKLMNOPQRSTUVWXYZÁÉÍÓÚÜÑ',"
-                    + "'abcdefghijklmnopqrstuvwxyzáéíóúüñ'), 'fallo de seguridad')"
+                    + "'ABCDEFGHIJKLMNOPQRSTUVWXYZ',"
+                    + "'abcdefghijklmnopqrstuvwxyz'), 'error deleting data')"
                     + " or contains(translate(normalize-space(.),"
-                    + "'ABCDEFGHIJKLMNOPQRSTUVWXYZÁÉÍÓÚÜÑ',"
-                    + "'abcdefghijklmnopqrstuvwxyzáéíóúüñ'), 'security failure')"
-                    + " or contains(translate(normalize-space(.),"
-                    + "'ABCDEFGHIJKLMNOPQRSTUVWXYZÁÉÍÓÚÜÑ',"
-                    + "'abcdefghijklmnopqrstuvwxyzáéíóúüñ'), 'error al eliminar datos')"
-                    + " or contains(translate(normalize-space(.),"
-                    + "'ABCDEFGHIJKLMNOPQRSTUVWXYZÁÉÍÓÚÜÑ',"
-                    + "'abcdefghijklmnopqrstuvwxyzáéíóúüñ'), 'error deleting data')"
-                    + " or contains(translate(normalize-space(.),"
-                    + "'ABCDEFGHIJKLMNOPQRSTUVWXYZÁÉÍÓÚÜÑ',"
-                    + "'abcdefghijklmnopqrstuvwxyzáéíóúüñ'), 'nombre de usuario debe tener')"
-                    + " or contains(translate(normalize-space(.),"
-                    + "'ABCDEFGHIJKLMNOPQRSTUVWXYZÁÉÍÓÚÜÑ',"
-                    + "'abcdefghijklmnopqrstuvwxyzáéíóúüñ'), 'username must be between')]");
+                    + "'ABCDEFGHIJKLMNOPQRSTUVWXYZ',"
+                    + "'abcdefghijklmnopqrstuvwxyz'), 'username must be between')]");
 
     public ProfilePage(WebDriver driver) {
         super(driver);
@@ -84,33 +71,33 @@ public class ProfilePage extends BasePage {
     }
 
     public ProfilePage chooseLightTheme() {
-        return chooseTheme("Claro", "Light", "light");
+        return chooseTheme("Light", "light");
     }
 
     public ProfilePage chooseDarkTheme() {
-        return chooseTheme("Oscuro", "Dark", "dark");
+        return chooseTheme("Dark", "dark");
     }
 
     public ProfilePage chooseSystemTheme() {
-        clickOption("Sistema", "System", false);
+        clickOption("System", false);
         waitForStoredValue("appTheme", "system");
         return this;
     }
 
     public ProfilePage chooseEnglishLanguage() {
-        clickOption("Inglés", "English", false);
+        clickOption("English", false);
         waitForStoredValue("appLanguage", "en");
         return this;
     }
 
     public ProfilePage chooseSpanishLanguage() {
-        clickOption("Español", "Spanish", false);
+        clickOption("Spanish", false);
         waitForStoredValue("appLanguage", "es");
         return this;
     }
 
     public ProfilePage chooseSystemLanguage() {
-        clickOption("Sistema", "System", true);
+        clickOption("System", true);
         waitForStoredValue("appLanguage", "system");
         return this;
     }
@@ -174,15 +161,15 @@ public class ProfilePage extends BasePage {
         return this;
     }
 
-    private ProfilePage chooseTheme(String spanish, String english, String storedValue) {
-        clickOption(spanish, english, false);
+    private ProfilePage chooseTheme(String label, String storedValue) {
+        clickOption(label, false);
         waitForStoredValue("appTheme", storedValue);
         return this;
     }
 
-    private void clickOption(String spanish, String english, boolean lastMatch) {
+    private void clickOption(String label, boolean lastMatch) {
         clickElement(wait.until(webDriver -> {
-            List<WebElement> options = driver.findElements(anyInteractiveText(spanish, english));
+            List<WebElement> options = driver.findElements(anyInteractiveText(label));
             if (lastMatch) {
                 for (int i = options.size() - 1; i >= 0; i--) {
                     WebElement option = options.get(i);
@@ -235,14 +222,12 @@ public class ProfilePage extends BasePage {
         });
     }
 
-    private static By anyText(String spanish, String english) {
-        return By.xpath("//*[contains(normalize-space(.),'" + spanish + "')"
-                + " or contains(normalize-space(.),'" + english + "')]");
+    private static By anyText(String text) {
+        return By.xpath("//*[contains(normalize-space(.),'" + text + "')]");
     }
 
-    private static By anyInteractiveText(String spanish, String english) {
+    private static By anyInteractiveText(String text) {
         return By.xpath("//*[@role='button' or self::button or @tabindex]"
-                + "[contains(normalize-space(.),'" + spanish + "')"
-                + " or contains(normalize-space(.),'" + english + "')]");
+                + "[contains(normalize-space(.),'" + text + "')]");
     }
 }

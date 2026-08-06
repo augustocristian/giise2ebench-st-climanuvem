@@ -52,7 +52,7 @@ class TestRegisterSystem extends BaseLoggedClass {
                         "Two-character username must be rejected"),
                 () -> assertRegistrationRejected(USERNAME_21, uniqueRegisterEmail(), VALID_PASSWORD, VALID_PASSWORD,
                         "Twenty-one-character username must be rejected"),
-                () -> assertRegistrationRejected(VALID_USERNAME_20, "correo-invalido", VALID_PASSWORD, VALID_PASSWORD,
+                () -> assertRegistrationRejected(VALID_USERNAME_20, "invalid-email", VALID_PASSWORD, VALID_PASSWORD,
                         "Invalid email must be rejected"),
                 () -> assertRegistrationRejected(VALID_USERNAME_20, existingAccount.getEmail(), VALID_PASSWORD, VALID_PASSWORD,
                         "Email already in use must be rejected")

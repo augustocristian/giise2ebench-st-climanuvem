@@ -112,7 +112,7 @@ export const useProfile = () => {
         showModal('error', t('profile.securityFail'), t('profile.reauthRequired'));
       }
     } catch (error) {
-      Logger.error('Error al eliminar datos del usuario', error);
+      Logger.error('Error deleting user data', error);
       setDeleting(false);
       showModal('error', t('profile.deleteDataError'), t('profile.deleteDataErrorDesc'));
     }

@@ -25,19 +25,19 @@ export const NotificationService = {
       }
       
       if (finalStatus !== 'granted') {
-        Logger.warn('Los permisos de notificaciones no fueron concedidos.');
+        Logger.warn('Notification permissions were not granted.');
         return undefined;
       }
       
       try {
-        // Obtenemos el device push token nativo (FCM en Android) porque el backend usa firebase-admin directamente
+        // Get the native device push token (FCM on Android) because the backend uses firebase-admin directly
         const tokenData = await Notifications.getDevicePushTokenAsync();
         token = tokenData.data;
       } catch (error) {
-        Logger.error('Error al obtener el push token del dispositivo', error);
+        Logger.error('Error getting the device push token', error);
       }
     } else {
-      Logger.info('Las notificaciones push requieren de un dispositivo físico.');
+      Logger.info('Push notifications require a physical device.');
     }
     
     return token;

@@ -5,10 +5,10 @@ import { GUEST_DEMO_HISTORY } from '@/src/services/mockData';
 describe('AnalysisService', () => {
   beforeEach(() => {
     jest.useFakeTimers();
-    jest.spyOn(BackendService, 'uploadImage').mockResolvedValue({ analysis_id: 1 });
-    jest.spyOn(BackendService, 'deleteAnalysis').mockResolvedValue({ deleted: true });
-    jest.spyOn(BackendService, 'cancelAnalysis').mockResolvedValue({ cancelled: true });
-    jest.spyOn(BackendService, 'getAnalysisHistory').mockResolvedValue([{ id: '1', status: 'completed', date: 'today' }]);
+    jest.spyOn(BackendService, 'uploadImage').mockResolvedValue({ id: 1, status: 'analyzing' });
+    jest.spyOn(BackendService, 'deleteAnalysis').mockResolvedValue(undefined);
+    jest.spyOn(BackendService, 'cancelAnalysis').mockResolvedValue({ id: 1, status: 'cancelled' });
+    jest.spyOn(BackendService, 'getAnalysisHistory').mockResolvedValue([{ id: 1, status: 'completed', date: 'today' }]);
   });
 
   afterEach(() => {
@@ -17,20 +17,20 @@ describe('AnalysisService', () => {
   });
 
   it('delegates upload, delete and cancel operations to the backend', async () => {
-    await expect(AnalysisService.uploadImage('file.jpg', 'Gijon', 1, 2, 'fcm', true)).resolves.toEqual({ analysis_id: 1 });
-    await expect(AnalysisService.deleteAnalysis('1')).resolves.toEqual({ deleted: true });
-    await expect(AnalysisService.cancelAnalysis('1')).resolves.toEqual({ cancelled: true });
+    await expect(AnalysisService.uploadImage('file.jpg', 'Gijon', 1, 2, 'fcm', true)).resolves.toEqual({ id: 1, status: 'analyzing' });
+    await expect(AnalysisService.deleteAnalysis(1)).resolves.toBeUndefined();
+    await expect(AnalysisService.cancelAnalysis(1)).resolves.toEqual({ id: 1, status: 'cancelled' });
 
     expect(BackendService.uploadImage).toHaveBeenCalledWith('file.jpg', 'Gijon', 1, 2, 'fcm', true);
-    expect(BackendService.deleteAnalysis).toHaveBeenCalledWith('1');
-    expect(BackendService.cancelAnalysis).toHaveBeenCalledWith('1');
+    expect(BackendService.deleteAnalysis).toHaveBeenCalledWith(1);
+    expect(BackendService.cancelAnalysis).toHaveBeenCalledWith(1);
   });
 
   it('returns backend history for logged-in users', async () => {
     const promise = AnalysisService.getHistory(true);
     jest.advanceTimersByTime(1000);
 
-    await expect(promise).resolves.toEqual([{ id: '1', status: 'completed', date: 'today' }]);
+    await expect(promise).resolves.toEqual([{ id: 1, status: 'completed', date: 'today' }]);
   });
 
   it('returns an empty history when logged-in history fails', async () => {

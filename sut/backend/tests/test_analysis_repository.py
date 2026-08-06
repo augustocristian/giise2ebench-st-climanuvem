@@ -126,8 +126,8 @@ def test_get_history_rows_filters_by_uid():
 
     assert result == rows
     select_call = get_call(connection, 0)
-    assert "FROM analysis a" in select_call[0]
-    assert select_call[1] == {"uid": "user-1"}
+    assert "FROM analysis WHERE uid = :uid" in select_call[0]
+    assert select_call[1] == {"uid": "user-1", "limit": 50, "offset": 0}
 
 
 def test_delete_user_analyses_deletes_children_and_returns_image_paths():

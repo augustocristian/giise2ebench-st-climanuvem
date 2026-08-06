@@ -12,10 +12,10 @@ import org.openqa.selenium.support.ui.ExpectedConditions;
  */
 public class WelcomePage extends BasePage {
 
-    private static final By GUEST_BUTTON  = byPartialText("Continuar como invitado");
-    private static final By LOGIN_BUTTON  = byPartialText("Iniciar Sesión");
+    private static final By GUEST_BUTTON  = byPartialText("Continue as guest");
+    private static final By LOGIN_BUTTON  = byPartialText("Log In");
     private static final By APP_TITLE     = byPartialText("ClimaNuvem");
-    private static final By TAGLINE       = byPartialText("Meteorólogo de bolsillo");
+    private static final By TAGLINE       = byPartialText("Pocket Meteorologist");
     private final String frontendUrl;
 
     public WelcomePage(WebDriver driver, String frontendUrl) {
@@ -30,18 +30,18 @@ public class WelcomePage extends BasePage {
     public boolean isTaglineVisible()         { return isPresent(TAGLINE);      }
     public boolean isLoginButtonPresent()     { return isPresent(LOGIN_BUTTON); }
     public boolean isGuestButtonPresent()     { return isPresent(GUEST_BUTTON); }
-    public boolean isHomeVisible()            { return isPresent(byPartialText("Bienvenido")); }
+    public boolean isHomeVisible()            { return isPresent(byPartialText("Welcome!")); }
 
     // ── Actions ───────────────────────────────────────────────────────────────
 
-    /** Clicks "Iniciar Sesión" and waits for the Login form to appear. */
+    /** Clicks "Log In" and waits for the Login form to appear. */
     public LoginPage clickLoginButton() {
         click(LOGIN_BUTTON);
         return new LoginPage(driver, frontendUrl);
     }
 
     /**
-     * Clicks "Continuar como invitado", which triggers Firebase anonymous auth,
+     * Clicks "Continue as guest", which triggers Firebase anonymous auth,
      * and waits for the Home screen to mount.
      */
     public HomePage clickAnonymousLogin() {

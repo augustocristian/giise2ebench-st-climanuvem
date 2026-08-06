@@ -3,6 +3,8 @@ import { Logger } from '@/src/services/LoggerService';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8000';
 const IMAGE_TOO_LARGE_CODE = 'IMAGE_TOO_LARGE_MAX_5MB';
+const API_PREFIX = '/api/v1';
+const HISTORY_PAGE_SIZE = 100;
 const DEFAULT_TIMEOUT_MS = 10000;
 const MUTATION_TIMEOUT_MS = 15000;
 
@@ -19,7 +21,7 @@ const isNetworkError = (error: any): boolean => {
 
 const backendReachabilityMessage = (path: string) =>
   `No se pudo contactar con el backend en ${backendUrl(path)}. ` +
-  `Verifica desde el navegador del movil ${BACKEND_URL}/ping, que el movil este en la misma red y que el firewall permita el puerto 8000.`;
+  `Verifica desde el navegador del movil ${BACKEND_URL}${API_PREFIX}/ping, que el movil este en la misma red y que el firewall permita el puerto 8000.`;
 
 const mapBackendError = async (response: Response): Promise<Error> => {
   const errorData = await response.json().catch(() => ({ detail: 'Error de red desconocido' }));
@@ -85,6 +87,12 @@ const authorizedFetch = async (
   }
 };
 
+const parseEmptyResponse = async (response: Response) => {
+  if (!response.ok) {
+    throw await mapBackendError(response);
+  }
+};
+
 const parseJsonResponse = async (response: Response) => {
   if (!response.ok) {
     throw await mapBackendError(response);
@@ -92,23 +100,39 @@ const parseJsonResponse = async (response: Response) => {
   return response.json();
 };
 
-const normalizeHistoryImageUrls = (data: any[]) =>
-  data.map((item: any) => {
-    if (item.imageUrl?.startsWith('/uploads/')) {
-      item.imageUrl = `${BACKEND_URL}${item.imageUrl}`;
-    }
-    return item;
-  });
+export type AuthenticatedImageSource = {
+  uri: string;
+  headers?: Record<string, string>;
+};
+
+/**
+ * Builds an Image source for an analysis image. Backend-relative paths
+ * (e.g. /api/v1/analyses/1/image) are made absolute and carry the Authorization
+ * header; absolute URLs (guest/mock data) are returned untouched, without headers.
+ */
+export const getAuthenticatedImageSource = async (imageUrl: string): Promise<AuthenticatedImageSource> => {
+  if (!imageUrl.startsWith('/')) {
+    return { uri: imageUrl };
+  }
+  const user = auth.currentUser;
+  if (!user) {
+    throw new Error('No hay usuario autenticado. Por favor, inicia sesión.');
+  }
+  const token = await user.getIdToken();
+  return { uri: backendUrl(imageUrl), headers: { Authorization: `Bearer ${token}` } };
+};
 
 export const BackendService = {
+  getAuthenticatedImageSource,
+
   testEndpoint: async () => {
     try {
-      Logger.debug('Obteniendo token de Firebase para endpoint de prueba');
-      const response = await authorizedFetch('GET', '/test');
-      Logger.info('Respuesta recibida de endpoint de prueba', { status: response.status });
+      Logger.debug('Getting Firebase token for test endpoint');
+      const response = await authorizedFetch('GET', `${API_PREFIX}/test`);
+      Logger.info('Response received from test endpoint', { status: response.status });
       return await parseJsonResponse(response);
     } catch (error: any) {
-      Logger.error('Error en BackendService.testEndpoint', error);
+      Logger.error('BackendService error in testEndpoint', error);
       throw error;
     }
   },
@@ -132,63 +156,72 @@ export const BackendService = {
       if (longitude !== undefined) formData.append('longitude', String(longitude));
       
       if (fcmToken) {
-        formData.append('fcm_token', fcmToken);
+        formData.append('fcmToken', fcmToken);
       }
-      formData.append('include_explainability', String(includeExplainability));
+      formData.append('includeExplainability', String(includeExplainability));
 
-      const response = await authorizedFetch('POST', '/analysis/upload', { body: formData, timeoutMs: MUTATION_TIMEOUT_MS });
+      const response = await authorizedFetch('POST', `${API_PREFIX}/analyses`, { body: formData, timeoutMs: MUTATION_TIMEOUT_MS });
       return await parseJsonResponse(response);
     } catch (error: any) {
-      Logger.error('Error en BackendService.uploadImage', error);
+      Logger.error('BackendService error in uploadImage', error);
       throw error;
     }
   },
 
   getAnalysisHistory: async () => {
     try {
-      const response = await authorizedFetch('GET', '/analysis/history');
-      const data = await parseJsonResponse(response);
-      return normalizeHistoryImageUrls(data);
+      const items: any[] = [];
+      for (let page = 0; ; page++) {
+        const response = await authorizedFetch('GET', `${API_PREFIX}/analyses?page=${page}&size=${HISTORY_PAGE_SIZE}`);
+        const data = await parseJsonResponse(response);
+        items.push(...data);
+        const total = Number(response.headers?.get?.('X-Total-Count'));
+        if (!Number.isFinite(total) || data.length < HISTORY_PAGE_SIZE || items.length >= total) {
+          break;
+        }
+      }
+      return items;
     } catch (error: any) {
-      Logger.error('Error en BackendService.getAnalysisHistory', error);
+      Logger.error('BackendService error in getAnalysisHistory', error);
       throw error;
     }
   },
 
   deleteUserData: async () => {
     try {
-      const response = await authorizedFetch('DELETE', '/analysis/user-data', { timeoutMs: MUTATION_TIMEOUT_MS });
-      return await parseJsonResponse(response);
+      const response = await authorizedFetch('DELETE', `${API_PREFIX}/analyses`, { timeoutMs: MUTATION_TIMEOUT_MS });
+      await parseEmptyResponse(response);
     } catch (error: any) {
-      Logger.error('Error en BackendService.deleteUserData', error);
+      Logger.error('BackendService error in deleteUserData', error);
       throw error;
     }
   },
 
-  deleteAnalysis: async (analysisId: string) => {
+  deleteAnalysis: async (analysisId: number) => {
     try {
-      const path = `/analysis/${analysisId}`;
+      const path = `${API_PREFIX}/analyses/${analysisId}`;
       const response = await authorizedFetch('DELETE', path, {
         timeoutMs: MUTATION_TIMEOUT_MS,
-        reachabilityPath: '/analysis/{analysisId}',
+        reachabilityPath: `${API_PREFIX}/analyses/{analysisId}`,
       });
-      return await parseJsonResponse(response);
+      await parseEmptyResponse(response);
     } catch (error: any) {
-      Logger.error('Error en BackendService.deleteAnalysis', error);
+      Logger.error('BackendService error in deleteAnalysis', error);
       throw error;
     }
   },
 
-  cancelAnalysis: async (analysisId: string) => {
+  cancelAnalysis: async (analysisId: number) => {
     try {
-      const path = `/analysis/${analysisId}/cancel`;
+      const path = `${API_PREFIX}/analyses/${analysisId}`;
       const response = await authorizedFetch('PATCH', path, {
+        body: JSON.stringify({ status: 'cancelled' }),
         timeoutMs: MUTATION_TIMEOUT_MS,
-        reachabilityPath: '/analysis/{analysisId}/cancel',
+        reachabilityPath: `${API_PREFIX}/analyses/{analysisId}`,
       });
       return await parseJsonResponse(response);
     } catch (error: any) {
-      Logger.error('Error en BackendService.cancelAnalysis', error);
+      Logger.error('BackendService error in cancelAnalysis', error);
       throw error;
     }
   },

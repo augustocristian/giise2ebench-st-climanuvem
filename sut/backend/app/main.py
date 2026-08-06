@@ -2,13 +2,13 @@ import os
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
+from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.infrastructure.database.database import engine
 from app.infrastructure.database.bootstrap import bootstrap_database
 from app.infrastructure.logging_config import configure_logging
 from app.infrastructure.config import get_settings
+from app.presentation.error_handlers import register_exception_handlers
 from app.presentation.routes import test_routes, analysis_routes
 from app.business.worker import analysis_worker
 
@@ -30,15 +30,15 @@ async def lifespan(app: FastAPI):
     
     if worker_task is not None:
         worker_task.cancel()
-        # Esperamos a que la tarea termine limpiamente sin propagar su excepción de cancelación
+        # Wait for the task to finish cleanly without propagating its cancellation exception
         await asyncio.gather(worker_task, return_exceptions=True)
 
 app = FastAPI(lifespan=lifespan)
+register_exception_handlers(app)
 
-# Mount the static directory for uploads
+# Uploads are served only through the authenticated /api/v1/analyses/{id}/image endpoint
 uploads_dir = os.path.join(os.path.dirname(__file__), "..", "uploads")
 os.makedirs(uploads_dir, exist_ok=True)
-app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
 
 app.add_middleware(
     CORSMiddleware,
@@ -48,14 +48,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-if get_settings().test_mode:
-    app.include_router(test_routes.router)
-app.include_router(analysis_routes.router, prefix="/analysis", tags=["Analysis"])
+api_v1 = APIRouter(prefix="/api/v1")
 
-@app.get("/ping")
+
+@api_v1.get("/ping")
 def ping():
     return {"ping": "pong"}
 
-@app.get("/")
+
+@api_v1.get("/", include_in_schema=False)
+@api_v1.get("")
 def read_root():
     return {"service": "ClimaNuvem API", "status": "ok"}
+
+
+if get_settings().test_mode:
+    api_v1.include_router(test_routes.router)
+api_v1.include_router(analysis_routes.router, prefix="/analyses", tags=["Analyses"])
+app.include_router(api_v1)

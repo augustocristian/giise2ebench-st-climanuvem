@@ -1,5 +1,6 @@
 package epigijon.climanuvem.e2e.functional.tests.api;
 
+import com.google.gson.JsonObject;
 import epigijon.climanuvem.e2e.functional.common.BaseApiClass;
 import giis.retorch.annotations.AccessMode;
 import org.junit.jupiter.api.Assertions;
@@ -11,7 +12,7 @@ import java.io.IOException;
 /**
  * Validates the cancellation endpoint:
  * <ul>
- *   <li>PATCH /analysis/{id}/cancel — cancel an in-progress analysis</li>
+ *   <li>PATCH /api/v1/analyses/{id} with {@code {"status": "cancelled"}} — cancel an in-progress analysis</li>
  * </ul>
  * Tests run with DISABLE_WORKER=true so uploaded analyses stay in 'analyzing'
  * status, making cancellation deterministic without Ollama.
@@ -20,45 +21,60 @@ class TestApiCancel extends BaseApiClass {
 
     @AccessMode(resID = "analysis", concurrency = 1, sharing = false, accessMode = "READWRITE")
     @Test
-    @DisplayName("PATCH /analysis/{id}/cancel returns HTTP 200 for an analysis in 'analyzing' status")
+    @DisplayName("PATCH /api/v1/analyses/{id} returns HTTP 200 and the updated analysis with status 'cancelled'")
     void testCancelAnalysisReturns200() throws IOException {
         int analysisId = createAnalysis("Cancel Me City");
 
-        int cancelStatus = patchStatusAuth(analysisUrl("/" + analysisId + "/cancel"));
-        Assertions.assertEquals(200, cancelStatus,
+        ApiResponse response = cancelAnalysis(analysisId);
+        Assertions.assertEquals(200, response.getStatusCode(),
                 "Cancelling an 'analyzing' task must return HTTP 200");
+        JsonObject body = response.json();
+        Assertions.assertAll(
+                () -> Assertions.assertEquals(analysisId, body.get("id").getAsInt(), "Updated object 'id'"),
+                () -> Assertions.assertEquals("cancelled", body.get("status").getAsString(),
+                        "Updated object must have status 'cancelled'")
+        );
     }
 
     @AccessMode(resID = "analysis", concurrency = 1, sharing = false, accessMode = "READWRITE")
     @Test
-    @DisplayName("PATCH /analysis/{id}/cancel returns HTTP 400 when the analysis is already cancelled")
-    void testCancelAlreadyCancelledReturns400() throws IOException {
+    @DisplayName("PATCH /api/v1/analyses/{id} returns 409 ANALYSIS_NOT_CANCELLABLE when already cancelled")
+    void testCancelAlreadyCancelledReturns409() throws IOException {
         int analysisId = createAnalysis("Double Cancel City");
 
-        patchStatusAuth(analysisUrl("/" + analysisId + "/cancel"));
+        cancelAnalysis(analysisId);
 
-        int secondCancelStatus = patchStatusAuth(analysisUrl("/" + analysisId + "/cancel"));
-        Assertions.assertEquals(400, secondCancelStatus,
-                "Cancelling an already-cancelled analysis must return HTTP 400");
+        assertProblem(cancelAnalysis(analysisId), 409, "ANALYSIS_NOT_CANCELLABLE");
     }
 
     @AccessMode(resID = "analysis", concurrency = 1, sharing = false, accessMode = "READWRITE")
     @Test
-    @DisplayName("PATCH /analysis/{id}/cancel returns HTTP 404 for a non-existent analysis")
+    @DisplayName("PATCH /api/v1/analyses/{id} returns 404 ANALYSIS_NOT_FOUND for a non-existent analysis")
     void testCancelNonExistentAnalysisReturns404() throws IOException {
-        int nonExistentId = Integer.MAX_VALUE;
-        int status = patchStatusAuth(analysisUrl("/" + nonExistentId + "/cancel"));
-        Assertions.assertEquals(404, status,
-                "Cancelling a non-existent analysis must return HTTP 404");
+        assertProblem(cancelAnalysis(Integer.MAX_VALUE), 404, "ANALYSIS_NOT_FOUND");
     }
 
     @AccessMode(resID = "analysis", concurrency = 1, sharing = false, accessMode = "READWRITE")
     @Test
-    @DisplayName("PATCH /analysis/{id}/cancel without Authorization header returns HTTP 403")
+    @DisplayName("PATCH /api/v1/analyses/{id} with a status other than 'cancelled' returns HTTP 422")
+    void testPatchWithInvalidStatusReturns422() throws IOException {
+        int analysisId = createAnalysis("Bad Status City");
+
+        ApiResponse response = patchStatusResponse(analysisUrl(analysisId), "completed", true);
+        Assertions.assertEquals(422, response.getStatusCode(),
+                "Only the 'cancelled' status can be requested");
+
+        JsonObject stored = getJsonObjectAuth(analysisUrl(analysisId));
+        Assertions.assertEquals("analyzing", stored.get("status").getAsString(),
+                "A rejected PATCH must not change the analysis");
+    }
+
+    @AccessMode(resID = "analysis", concurrency = 1, sharing = false, accessMode = "READWRITE")
+    @Test
+    @DisplayName("PATCH /api/v1/analyses/{id} without Authorization header returns HTTP 401")
     void testCancelRequiresAuth() throws IOException {
         int analysisId = createAnalysis("Auth Check City");
-        int status = getStatus(analysisUrl("/" + analysisId + "/cancel"));
-        Assertions.assertEquals(403, status,
-                "Cancel endpoint must return 403 when no token is provided");
+        ApiResponse response = patchStatusResponse(analysisUrl(analysisId), "cancelled", false);
+        assertProblem(response, 401, "NOT_AUTHENTICATED");
     }
 }

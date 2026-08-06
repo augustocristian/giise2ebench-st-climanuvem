@@ -3,7 +3,7 @@ import { Logger } from '@/src/services/LoggerService';
 import { GUEST_DEMO_HISTORY } from '@/src/services/mockData';
 
 export interface AnalysisHistoryItem {
-  id: string;
+  id: number;
   status: 'completed' | 'analyzing' | 'cancelled';
   date: string;
   location?: string;
@@ -23,11 +23,11 @@ export class AnalysisService {
     return BackendService.uploadImage(imageUri, locationStr, latitude, longitude, fcmToken, includeExplainability);
   }
 
-  static async deleteAnalysis(analysisId: string) {
+  static async deleteAnalysis(analysisId: number) {
     return BackendService.deleteAnalysis(analysisId);
   }
 
-  static async cancelAnalysis(analysisId: string) {
+  static async cancelAnalysis(analysisId: number) {
     return BackendService.cancelAnalysis(analysisId);
   }
 
@@ -40,7 +40,7 @@ export class AnalysisService {
         const history = await BackendService.getAnalysisHistory();
         return history as AnalysisHistoryItem[];
       } catch (error) {
-        Logger.error('Error al obtener el historial de análisis', error);
+        Logger.error('Error fetching analysis history', error);
         return [];
       }
     }

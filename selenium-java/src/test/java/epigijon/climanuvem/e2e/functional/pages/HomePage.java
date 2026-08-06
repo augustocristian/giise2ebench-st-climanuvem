@@ -8,15 +8,15 @@ import org.openqa.selenium.support.ui.ExpectedConditions;
  * Page Object for the Home screen — shown after a successful login.
  * <p>
  * Constructing this object waits until both the welcome card and the
- * "Analizar Imagen" quick-action card are visible, confirming that the
+ * "Analyze Image" quick-action card are visible, confirming that the
  * authenticated home view has fully rendered.
  */
 public class HomePage extends BasePage {
 
-    private static final By WELCOME_MESSAGE = byPartialText("Bienvenido");
-    private static final By ANALYZE_CARD = byPartialText("Analizar Imagen");
-    private static final By HISTORY_CARD = byPartialText("Historial");
-    private static final By LOGOUT_CARD = byPartialText("Cerrar Sesión");
+    private static final By WELCOME_MESSAGE = byPartialText("Welcome!");
+    private static final By ANALYZE_CARD = byPartialText("Analyze Image");
+    private static final By HISTORY_CARD = byPartialText("History");
+    private static final By LOGOUT_CARD = byPartialText("Log Out");
     private final String frontendUrl;
 
     public HomePage(WebDriver driver, String frontendUrl) {
@@ -67,7 +67,7 @@ public class HomePage extends BasePage {
         return new ProfilePage(driver);
     }
 
-    /** Clicks "Cerrar Sesión" and waits for the Welcome screen to re-appear. */
+    /** Clicks "Log Out" and waits for the Welcome screen to re-appear. */
     public WelcomePage clickLogout() {
         click(LOGOUT_CARD);
         return new WelcomePage(driver, frontendUrl);

@@ -14,9 +14,9 @@ def _load_main_with_test_mode(monkeypatch, enabled: bool):
 
 def test_test_route_is_only_registered_in_test_mode(monkeypatch):
     main_module = _load_main_with_test_mode(monkeypatch, True)
-    assert TestClient(main_module.app).get("/test").status_code != 404
+    assert TestClient(main_module.app).get("/api/v1/test").status_code != 404
 
     main_module = _load_main_with_test_mode(monkeypatch, False)
-    assert TestClient(main_module.app).get("/test").status_code == 404
+    assert TestClient(main_module.app).get("/api/v1/test").status_code == 404
 
     _load_main_with_test_mode(monkeypatch, True)

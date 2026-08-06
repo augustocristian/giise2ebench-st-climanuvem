@@ -54,7 +54,7 @@ class TestApiImageAnalysisSystem extends BaseApiClass {
         JsonObject upload = uploadAndAssertAnalyzing(createCloudyJpeg(), "base-gallery.jpg",
                 ContentType.IMAGE_JPEG, "Base Gallery City", false);
 
-        JsonObject completed = waitForCompletedAnalysis(upload.get("analysis_id").getAsInt());
+        JsonObject completed = waitForCompletedAnalysis(upload.get("id").getAsInt());
         JsonArray cloudTypes = completed.getAsJsonObject("results").getAsJsonArray("cloudTypes");
 
         Assertions.assertFalse(cloudTypes.isEmpty(),
@@ -68,7 +68,7 @@ class TestApiImageAnalysisSystem extends BaseApiClass {
         JsonObject upload = uploadAndAssertAnalyzing(createCloudyJpeg(), "camera-capture.jpg",
                 ContentType.IMAGE_JPEG, "Camera City", false);
 
-        JsonObject completed = waitForCompletedAnalysis(upload.get("analysis_id").getAsInt());
+        JsonObject completed = waitForCompletedAnalysis(upload.get("id").getAsInt());
 
         Assertions.assertEquals("completed", completed.get("status").getAsString(),
                 "A camera-origin JPG reaches the same completed state as gallery uploads at API level");
@@ -78,7 +78,7 @@ class TestApiImageAnalysisSystem extends BaseApiClass {
     @Test
     @DisplayName("3 - Upload with no selected file is rejected")
     void uploadWithNoSelectedFileIsRejected() throws IOException {
-        int status = uploadWithoutFileStatus(analysisUrl("/upload"), "No File City");
+        int status = uploadWithoutFileStatus(analysesUrl(""), "No File City");
 
         Assertions.assertEquals(422, status,
                 "Multipart uploads without a file must be rejected as an invalid request");
@@ -88,33 +88,30 @@ class TestApiImageAnalysisSystem extends BaseApiClass {
     @Test
     @DisplayName("4 - Zero-byte image is rejected")
     void zeroByteImageIsRejected() throws IOException {
-        int status = uploadImageStatus(analysisUrl("/upload"), createEmptyImageBytes(), "empty.jpg",
+        ApiResponse response = uploadImageResponse(analysesUrl(""), createEmptyImageBytes(), "empty.jpg",
                 ContentType.IMAGE_JPEG, "Empty Image City", false);
 
-        Assertions.assertEquals(400, status,
-                "Zero-byte images must be rejected with HTTP 400");
+        assertProblem(response, 422, "IMAGE_EMPTY");
     }
 
     @AccessMode(resID = "analysis", concurrency = 1, sharing = false, accessMode = "READWRITE")
     @Test
     @DisplayName("5 - Image larger than 5 MB is rejected")
     void imageLargerThanFiveMbIsRejected() throws IOException {
-        int status = uploadImageStatus(analysisUrl("/upload"), createTooLargePayload(), "too-large.jpg",
+        ApiResponse response = uploadImageResponse(analysesUrl(""), createTooLargePayload(), "too-large.jpg",
                 ContentType.IMAGE_JPEG, "Too Large City", false);
 
-        Assertions.assertEquals(413, status,
-                "Images above the 5 MB limit must be rejected with HTTP 413");
+        assertProblem(response, 413, "IMAGE_TOO_LARGE_MAX_5MB");
     }
 
     @AccessMode(resID = "analysis", concurrency = 1, sharing = false, accessMode = "READWRITE")
     @Test
     @DisplayName("6 - Non-JPG upload is rejected")
     void nonJpgUploadIsRejected() throws IOException {
-        int status = uploadImageStatus(analysisUrl("/upload"), createNonJpegPayload(), "not-a-jpg.txt",
+        ApiResponse response = uploadImageResponse(analysesUrl(""), createNonJpegPayload(), "not-a-jpg.txt",
                 ContentType.TEXT_PLAIN, "Wrong Format City", false);
 
-        Assertions.assertTrue(status >= 400,
-                "Non-JPG images must be rejected by the system design");
+        assertProblem(response, 415, "INVALID_IMAGE_FORMAT_JPG_ONLY");
     }
 
     @AccessMode(resID = "analysis", concurrency = 1, sharing = false, accessMode = "READWRITE")
@@ -124,7 +121,7 @@ class TestApiImageAnalysisSystem extends BaseApiClass {
         JsonObject upload = uploadAndAssertAnalyzing(createCloudyJpeg(), "explainability-clouds.jpg",
                 ContentType.IMAGE_JPEG, "Explainability City", true);
 
-        JsonObject completed = waitForCompletedAnalysis(upload.get("analysis_id").getAsInt());
+        JsonObject completed = waitForCompletedAnalysis(upload.get("id").getAsInt());
         JsonArray cloudDetails = completed.getAsJsonObject("results").getAsJsonArray("cloudDetails");
 
         Assertions.assertTrue(hasNormalizedBox(cloudDetails),
@@ -138,7 +135,7 @@ class TestApiImageAnalysisSystem extends BaseApiClass {
         JsonObject upload = uploadAndAssertAnalyzing(createNoCloudJpeg(), "clear-sky.jpg",
                 ContentType.IMAGE_JPEG, "Clear Sky City", false);
 
-        JsonObject completed = waitForCompletedAnalysis(upload.get("analysis_id").getAsInt());
+        JsonObject completed = waitForCompletedAnalysis(upload.get("id").getAsInt());
         JsonObject results = completed.getAsJsonObject("results");
 
         Assertions.assertAll(
@@ -151,17 +148,17 @@ class TestApiImageAnalysisSystem extends BaseApiClass {
 
     private JsonObject uploadAndAssertAnalyzing(byte[] imageBytes, String filename, ContentType contentType,
             String location, boolean includeExplainability) throws IOException {
-        ApiResponse response = uploadImageResponse(analysisUrl("/upload"), imageBytes, filename, contentType,
+        ApiResponse response = uploadImageResponse(analysesUrl(""), imageBytes, filename, contentType,
                 location, includeExplainability);
 
-        Assertions.assertEquals(200, response.getStatusCode(), "Upload must return HTTP 200");
+        Assertions.assertEquals(202, response.getStatusCode(), "Upload must return HTTP 202");
         JsonObject body = JsonParser.parseString(response.getBody()).getAsJsonObject();
         Assertions.assertAll(
-                () -> Assertions.assertTrue(body.has("analysis_id"), "Upload response must contain analysis_id"),
+                () -> Assertions.assertTrue(body.has("id"), "Upload response must contain id"),
                 () -> Assertions.assertEquals("analyzing", body.get("status").getAsString(),
                         "Upload response must start in analyzing status"),
-                () -> Assertions.assertTrue(body.get("analysis_id").getAsInt() > 0,
-                        "analysis_id must be positive")
+                () -> Assertions.assertTrue(body.get("id").getAsInt() > 0,
+                        "id must be positive")
         );
         return body;
     }

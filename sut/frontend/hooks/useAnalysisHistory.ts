@@ -14,7 +14,7 @@ export const useAnalysisHistory = () => {
   const [history, setHistory] = useState<AnalysisHistoryItem[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
-  const [initialSelectedAnalysisId, setInitialSelectedAnalysisId] = useState<string | null>(null);
+  const [initialSelectedAnalysisId, setInitialSelectedAnalysisId] = useState<number | null>(null);
   
   // Track to avoid processing the same notification repeatedly
   const [processedNotificationId, setProcessedNotificationId] = useState<string | null>(null);
@@ -68,8 +68,10 @@ export const useAnalysisHistory = () => {
       if (reqId !== processedNotificationId) {
         setProcessedNotificationId(reqId);
         const data = lastNotificationResponse.notification.request.content.data;
-        if (data?.analysis_id) {
-          setInitialSelectedAnalysisId(data.analysis_id as string);
+        const rawId = data?.id ?? data?.analysis_id;
+        const analysisId = Number(rawId);
+        if (rawId !== undefined && rawId !== null && Number.isInteger(analysisId)) {
+          setInitialSelectedAnalysisId(analysisId);
           loadHistory(true);
         }
       }

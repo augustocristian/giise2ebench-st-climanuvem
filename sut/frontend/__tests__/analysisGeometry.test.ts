@@ -3,7 +3,7 @@ import { computeBoundingBoxes } from '@/src/utils/analysisGeometry';
 describe('analysisGeometry', () => {
   it('returns an empty list when layout or analysis details are unavailable', () => {
     expect(computeBoundingBoxes(
-      { id: '1', status: 'completed', date: '2026-07-05T00:00:00.000Z' },
+      { id: 1, status: 'completed', date: '2026-07-05T00:00:00.000Z' },
       null,
       { width: 400, height: 200 },
     )).toEqual([]);
@@ -12,7 +12,7 @@ describe('analysisGeometry', () => {
   it('computes rendered bounding boxes and offsets overlapping labels', () => {
     const boxes = computeBoundingBoxes(
       {
-        id: '1',
+        id: 1,
         status: 'completed',
         date: '2026-07-05T00:00:00.000Z',
         results: {
@@ -37,7 +37,7 @@ describe('analysisGeometry', () => {
   it('skips cloud details without boxes', () => {
     const boxes = computeBoundingBoxes(
       {
-        id: '1',
+        id: 1,
         status: 'completed',
         date: '2026-07-05T00:00:00.000Z',
         results: {
