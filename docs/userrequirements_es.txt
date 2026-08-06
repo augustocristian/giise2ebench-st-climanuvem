@@ -1,0 +1,40 @@
+RQ 1) El usuario podrá utilizar el sistema:
+RQ 1.1) Autenticándose con un correo electrónico y una contraseña.
+RQ 1.2) Accediendo a la aplicación sin iniciar sesión, continuando como invitado.
+RQ 2) El usuario podrá registrarse en el sistema, proporcionando:
+RQ 2.1) Un nombre de usuario.
+RQ 2.2) Un correo electrónico que no esté en uso actualmente.
+RQ 2.3) Una contraseña o clave de acceso para su cuenta.
+RQ 2.4) Una confirmación de dicha contraseña, que debe coincidir con la proporcionada.
+RQ 3) En la aplicación, el usuario podrá:
+RQ 3.1) Subir una foto en formato JPG del cielo usando la aplicación móvil para que sea analizada.
+RQ 3.1.1) El usuario podrá tomar una foto con la cámara del dispositivo.
+RQ 3.1.2) El usuario podrá seleccionar la foto de la galería o del sistema de archivos del dispositivo.
+RQ 3.1.3) El usuario podrá decidir si desea activar la explicabilidad para el análisis o no.
+RQ 3.2) Si el análisis aún no se ha completado, el usuario podrá cancelarlo para evitar que la imagen se procese.
+RQ 3.3) Si el análisis ya ha sido completado, el usuario podrá ver los resultados del análisis de la fotografía, en los que dispondrá de:
+RQ 3.3.1) La imagen enviada junto con nubes identificadas:
+RQ 3.3.1.1) Las nubes se identificarán diferenciando entre 10 tipos divididos en cuatro categorías según su altura:
+RQ 3.3.1.1.1) Nubes altas (más de 6000 metros): Cirros (Ci), Cirroestratos (Cs) y Cirrocúmulos (Cc).
+RQ 3.3.1.1.2) Nubes medias (2000 a 6000 metros): Altoestratos (As) y Altocúmulos (Ac).
+RQ 3.3.1.1.3) Nubes bajas (hasta 2000 metros): Estratos (St), Estratocúmulos (Sc) y Nimboestratos (Ns).
+RQ 3.3.1.1.4) Nubes de desarrollo vertical (están en varias capas al mismo tiempo): Cúmulos (Cu) y Cumulonimbos (Cb).
+RQ 3.3.1.1.5) También se identificarán las estelas de los aviones visibles en la imagen.
+RQ 3.3.1.2) Las nubes se identificarán en la imagen completa, sin diferenciar entre nubes individuales y formaciones.
+RQ 3.3.2) Un pronóstico del tiempo para las próximas 2-3 horas basado en las nubes identificadas en la imagen:
+RQ 3.3.2.1) Tiempo estable cuando no hay nubes presentes o hay mayoritariamente Cirros o Estratocúmulos.
+RQ 3.3.2.2) Posibilidad de desarrollo vertical cuando hay Cúmulos presentes.
+RQ 3.3.2.3) Baja visibilidad cuando hay Estratos presentes.
+RQ 3.3.2.4) Precipitaciones cuando se detectan Nimboestratos.
+RQ 3.3.2.5) Tormenta cuando se detectan Cumulonimbos.
+RQ 3.3.2.6) Cambio de tiempo cuando hay Altoestratos presentes.
+RQ 3.3.2.7) Inestabilidad del tiempo en altura cuando se detectan Altocúmulos, Cirrocúmulos o estelas de avión.
+RQ 3.3.2.8) Frente cálido cuando hay Cirrostratos presentes.
+RQ 3.3.3) Recibirá también una advertencia en el pronóstico si las nubes identificadas conllevan algún riesgo potencial, entre los que se encuentran: tormentas, tormentas eléctricas, chubascos, niebla persistente, precipitaciones persistentes y cambios de tiempo inminentes.
+RQ 3.4) El usuario podrá ver el historial de las anteriores imágenes analizadas:
+RQ 3.4.1) Podrá ver una lista de sus análisis anteriores, con su estado, la fecha y la hora en que se realizó el análisis y, si está disponible, la ubicación desde la que se realizó. Cada análisis podrá tener tres estados:
+RQ 3.4.1.1) En progreso.
+RQ 3.4.1.2) Cancelado.
+RQ 3.4.1.3) Completado.
+RQ 3.4.2) Podrá acceder a cada análisis de la lista y visualizar sus resultados, pudiendo ver: la imagen analizada, el estado del análisis, la fecha y hora del análisis, la ubicación desde la que se realizó (si está disponible), las nubes identificadas, el pronóstico y las advertencias asociados al mismo.
+RQ 3.4.2.1) Si la explicabilidad fue activada para el análisis, el usuario podrá ver las bounding boxes de cada nube superpuestas sobre la imagen analizada, con una etiqueta indicativa del tipo de nube detectada.

@@ -1,0 +1,81 @@
+services:
+  db:
+    image: postgres:15
+    container_name: climanuvem_db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - climanuvem_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  ollama:
+    image: ollama/ollama
+    container_name: climanuvem_ollama
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - climanuvem_net
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  ollama-pull:
+    image: ollama/ollama
+    container_name: climanuvem_ollama_pull
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    command: pull ${OLLAMA_MODEL:-gemma4:e4b}
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - climanuvem_net
+    restart: "no"
+
+  backend:
+    build: .
+    container_name: climanuvem_backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - backend_uploads:/app/uploads
+      - ./secrets:/app/secrets:ro
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      - FIREBASE_KEY_PATH=secrets/firebase_key.json
+      - OLLAMA_URL=http://ollama:11434/api/generate
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-gemma4:e4b}
+    depends_on:
+      db:
+        condition: service_healthy
+      ollama-pull:
+        condition: service_completed_successfully
+    networks:
+      - climanuvem_net
+
+networks:
+  climanuvem_net:
+
+volumes:
+  postgres_data:
+  ollama_data:
+  backend_uploads:

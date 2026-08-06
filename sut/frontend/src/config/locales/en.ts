@@ -1,0 +1,241 @@
+export default {
+  translation: {
+    clouds: {
+      cirrus: {
+        name: "Cirrus",
+        forecast: "Stable weather, possible change in the next hours",
+        warning: "No immediate risk"
+      },
+      cumulus: {
+        name: "Cumulus",
+        forecast: "Possible vertical development, monitor evolution",
+        warning: "Possible isolated showers"
+      },
+      stratus: {
+        name: "Stratus",
+        forecast: "Overcast sky, low visibility",
+        warning: "Fog or drizzle"
+      },
+      nimbostratus: {
+        name: "Nimbostratus",
+        forecast: "Continuous rainfall",
+        warning: "Persistent rain"
+      },
+      cumulonimbus: {
+        name: "Cumulonimbus",
+        forecast: "Storm likely",
+        warning: "Thunderstorm, heavy rain, strong wind"
+      },
+      altostratus: {
+        name: "Altostratus",
+        forecast: "Probable weather change",
+        warning: "Possible rain in the next hours"
+      },
+      altocumulus: {
+        name: "Altocumulus",
+        forecast: "Instability at high altitudes",
+        warning: "Possible storms later"
+      },
+      stratocumulus: {
+        name: "Stratocumulus",
+        forecast: "Low cloudiness without significant development",
+        warning: "Generally no risk"
+      },
+      cirrostratus: {
+        name: "Cirrostratus",
+        forecast: "Warm front approaching",
+        warning: "Precipitation in the next hours"
+      },
+      cirrocumulus: {
+        name: "Cirrocumulus",
+        forecast: "Instability in upper layers",
+        warning: "Possible worsening"
+      },
+      contrail: {
+        name: "Airplane Contrails",
+        forecast: "High humidity at high altitudes",
+        warning: "Possible weather change"
+      },
+      no_cloud: {
+        name: "No Clouds",
+        forecast: "Clear sky, stable conditions",
+        warning: "None"
+      }
+    },
+    common: {
+      save: "Save Changes",
+      saving: "Saving...",
+      cancel: "Cancel",
+      delete: "Delete",
+      confirm: "Confirm",
+      back: "Back",
+      loading: "Loading...",
+      error: "Error",
+      success: "Success",
+      system: "System",
+      light: "Light",
+      dark: "Dark",
+      english: "English",
+      spanish: "Spanish",
+      accept: "Accept",
+      latitude: "Lat",
+      longitude: "Lng",
+      guest: "Guest",
+      user: "User",
+      connecting: "Connecting...",
+      successExclamation: "Success!",
+      connectionError: "Connection failure",
+      serverError: "Error connecting to server.",
+      denied: "Denied",
+      wait: "Please wait...",
+      ok: "OK"
+    },
+    profile: {
+      title: "My Profile",
+      username: "Username",
+      usernamePlaceholder: "Enter your name",
+      guestPreferencesTitle: "Guest preferences",
+      guestPreferencesDesc: "In guest mode you can change the theme and language. Sign in to edit your name or delete an account.",
+      appearance: "Appearance",
+      appearanceDesc: "Customize the application theme.",
+      language: "Language",
+      languageDesc: "Choose your preferred language.",
+      dangerZone: "Danger Zone",
+      dangerDesc: "Once you delete your account, there is no going back. Please be certain.",
+      deleteAccount: "Delete Account",
+      deleteConfirmTitle: "Delete Account?",
+      deleteConfirmBody: "This action is permanent and will delete all your analyses. Are you sure you want to continue?",
+      yesDelete: "Yes, delete",
+      updated: "Profile updated",
+      updatedDesc: "Your username has been updated successfully.",
+      securityFail: "Security failure",
+      reauthRequired: "To delete your account you must have logged in recently for security reasons. Please log out, log back in and try again.",
+      deleteDataError: "Error deleting data",
+      deleteDataErrorDesc: "Something went wrong while deleting your files or associated operations. Try again."
+    },
+    home: {
+      title: "Home",
+      welcome: "Welcome!",
+      quickActions: "Quick Actions",
+      analyzeImage: "Analyze Image",
+      analyzeDesc: "Upload a cloud photo for analysis",
+      history: "History",
+      historyDesc: "Review your previous analyses",
+      logout: "Log Out",
+      logoutDesc: "Sign out of your current account"
+    },
+    analysisDetail: {
+      title: "Analysis Detail",
+      status: "Status",
+      date: "Date",
+      location: "Location",
+      results: "Results",
+      forecast: "Forecast",
+      warnings: "Warnings",
+      noClouds: "No clouds detected",
+      noList: "No analyses found. Analyze your first image to see its results. ",
+      unknownType: "Unknown cloud type",
+      completed: "Completed",
+      analyzing: "Analyzing",
+      failed: "Failed",
+      cancelled: "Cancelled",
+      cancelAnalysis: "Cancel Analysis",
+      deleteAnalysis: "Delete Analysis",
+      confirmCancelTitle: "Cancel Analysis",
+      confirmCancelBody: "Are you sure you want to cancel this analysis?",
+      yesCancel: "Yes, cancel",
+      confirmDeleteTitle: "Delete Analysis",
+      confirmDeleteBody: "Are you sure you want to delete this analysis permanently?",
+      yesDelete: "Yes, delete",
+      imageError: "Error loading image",
+      deleteError: "Could not delete analysis.",
+      cancelError: "Could not cancel analysis."
+    },
+    capture: {
+      title: "Take Photo",
+      gallery: "Gallery",
+      analyze: "Analyze",
+      explainability: "Include bounding boxes (Slower)",
+      locationUnknown: "Unknown location",
+      subtitle: "Select one of the following options to upload a photo and analyze it. The system will automatically identify the clouds found.",
+      cameraDesc: "Use camera in real time",
+      galleryDesc: "Choose an existing image",
+      explainabilityName: "Explainability",
+      explainabilityWarning: "If explainability is enabled, the accuracy of the analysis may decrease, and the feature may not always work as expected.",
+      formatInfo: "Supported formats: JPG only.",
+      maxSizeInfo: "Maximum image size: 5MB.",
+      obtainingLocation: "Obtaining location...",
+      preparingUpload: "Preparing upload...",
+      obtainingNotifications: "Obtaining session notifications...",
+      preparingImage: "Preparing image...",
+      optimizingFormat: "Optimizing format...",
+      uploadingImage: "Uploading image...",
+      secondsWait: "This may take a few seconds",
+      imageSent: "Image sent",
+      imageSentDesc: "We will automatically notify you when the analysis is finished and it will be saved in your history.",
+      imageTooLarge: "The image exceeds the maximum allowed size of 5MB.",
+      uploadError: "There was a problem sending the image to the server.",
+      unknownCity: "Unknown city",
+      unknownCountry: "Unknown country",
+      unknownLocation: "Unknown location"
+    },
+    welcome: {
+      title: "Pocket Meteorologist",
+      subtitle: "Analyze weather and clouds with your phone.",
+      guest: "Continue as guest"
+    },
+    auth: {
+      login: "Log In",
+      welcomeBack: "Welcome back",
+      loginDesc: "Enter your credentials to access the dashboard.",
+      email: "Email address",
+      password: "Password",
+      google: "Continue with Google",
+      forgotPassword: "Forgot your password?",
+      noAccount: "Don't have an account? ",
+      register: "Sign Up",
+      createAccount: "Create Account",
+      registerDesc: "Sign up to access your past analyses.",
+      username: "Username",
+      confirmPassword: "Confirm password",
+      doRegister: "Register",
+      haveAccount: "Already have an account? ",
+      doLogin: "Log in",
+      permissionDenied: "Permission denied",
+      cameraPermissionRequired: "Camera permission is required to use this feature.",
+      galleryPermissionRequired: "Gallery permission is required to use this feature.",
+      invalidJpg: "The system only accepts images in JPG format.",
+      betterExperience: "Better experience",
+      permissionPrompt: "For ClimaNuvem to work correctly, we need Location permission (to know where you spotted the cloud) and Notifications (to let you know when the analysis is ready). Do you want to continue?",
+      googleNotAvailable: "Google Sign-in not available",
+      googleNotAvailableDesc: "This feature is not available in this environment (e.g. Expo Go).",
+      googleError: "Error with Google",
+      googleErrorDesc: "An error occurred while trying to sign in with Google.",
+      invalidEmail: "Please enter a valid email address.",
+      resetPasswordFirst: "Please enter your email address first to reset the password.",
+      emailSent: "Email sent",
+      resetPasswordEmailSent: "A link to reset your password has been sent to your email address.",
+      resetError: "Error resetting",
+      usernameLength: "Username must be between 3 and 20 characters.",
+      passwordLength: "Password must be at least 6 characters.",
+      passwordsDoNotMatch: "Passwords do not match.",
+      registrationSuccess: "Successful registration",
+      verificationEmailSent: "We have sent a verification email. Please verify your email before logging in."
+    },
+    authErrors: {
+      "invalid-email": "The email format is invalid.",
+      "user-not-found": "No account exists with this email.",
+      "wrong-password": "The password is incorrect.",
+      "invalid-credential": "Incorrect credentials. Please check your email and password.",
+      "missing-email": "Missing email.",
+      "too-many-requests": "Too many attempts. Please try again later.",
+      "user-disabled": "This account has been disabled.",
+      "email-not-verified": "You must verify your email before logging in. Please check your inbox and spam folder.",
+      "email-already-in-use": "This email is already in use by another account.",
+      "operation-not-allowed": "Email and password account creation is not enabled.",
+      "weak-password": "The password is too weak (it must be at least 6 characters).",
+      "password-does-not-meet-requirements": "The password must contain at least one uppercase letter and one number.",
+      "default": "Authentication error"
+    }
+  }
+};

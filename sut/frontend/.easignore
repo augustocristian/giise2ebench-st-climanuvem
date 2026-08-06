@@ -1,0 +1,28 @@
+# Ignore all dependencies
+**/node_modules/
+node_modules/
+
+# Ignore native build artifacts
+**/android/build/
+**/android/.gradle/
+**/android/.kotlin/
+**/ios/build/
+android/build/
+android/.gradle/
+android/.kotlin/
+ios/build/
+
+# Ignore local env and expo cache
+.expo/
+.vscode/
+.env*.local
+.git/
+
+# Ignore logs
+*.log
+
+# Ignore any existing artifacts
+*.apk
+*.aab
+*.tar.gz
+*.tgz

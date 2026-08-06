@@ -1,0 +1,44 @@
+# Created by https://www.toptal.com/developers/gitignore/api/deno,web,visualstudiocode
+# Edit at https://www.toptal.com/developers/gitignore?templates=deno,web,visualstudiocode
+
+### Deno ###
+/.idea/
+/.vscode/
+
+/node_modules
+
+.env
+*.orig
+*.pyc
+*.swp
+
+### VisualStudioCode ###
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/*.code-snippets
+
+# Local History for Visual Studio Code
+.history/
+
+# Built Visual Studio Code Extensions
+*.vsix
+
+### VisualStudioCode Patch ###
+# Ignore all local history of files
+.history
+.ionide
+
+
+# End of https://www.toptal.com/developers/gitignore/api/deno,web,visualstudiocode
+frontend/google-services.json
+*.keystore
+*.jks
+*.p12
+*.p8
+frontend/GoogleService-Info.plist
+
+# Sphinx build output
+docs/_build/

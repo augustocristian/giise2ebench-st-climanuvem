@@ -1,0 +1,43 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "ClimaNuvem"
+abstract: >-
+  Mobile app that uses a multimodal model to analyze pictures of clouds to
+  generate a short-term local weather forecast, in relation with the types
+  of clouds detected.
+type: software
+authors:
+  - given-names: Fernando
+    family-names: Uria Navarro
+    affiliation: "Universidad de Oviedo"
+  - given-names: Cristian
+    family-names: Augusto
+    affiliation: "Universidad de Oviedo"
+  - given-names: "Miguel Ángel"
+    family-names: Gallego Becerra
+    affiliation: "HP SDCS"
+  - given-names: Tomás
+    family-names: Pérez Vellarino
+    affiliation: "HP SDCS"
+contact:
+  - given-names: Fernando
+    family-names: Uria Navarro
+    affiliation: "Universidad de Oviedo"
+repository-code: "https://github.com/uo289165/epi-climanuvem"
+url: "https://github.com/uo289165/epi-climanuvem"
+license: MIT
+version: 1.0.0
+date-released: "2026-07-04"
+preferred-citation:
+  type: thesis
+  title: >-
+    ClimaNuvem: desarrollo de aplicación móvil con IA para la identificación
+    y predicción del clima en la montaña
+  authors:
+    - given-names: Fernando
+      family-names: Uria Navarro
+      affiliation: "Universidad de Oviedo"
+  institution:
+    name: "Universidad de Oviedo"
+  thesis-type: "Trabajo Fin de Grado"
+  year: 2026

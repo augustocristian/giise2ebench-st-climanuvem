@@ -1,0 +1,241 @@
+export default {
+  translation: {
+    clouds: {
+      cirrus: {
+        name: "Cirros",
+        forecast: "Tiempo estable, posible cambio en las próximas horas",
+        warning: "Sin riesgo inmediato"
+      },
+      cumulus: {
+        name: "Cúmulos",
+        forecast: "Posible desarrollo vertical, vigilar evolución",
+        warning: "Posibles chubascos aislados"
+      },
+      stratus: {
+        name: "Estratos",
+        forecast: "Cielo cubierto, baja visibilidad",
+        warning: "Nieblas o llovizna"
+      },
+      nimbostratus: {
+        name: "Nimboestratos",
+        forecast: "Precipitaciones continuas",
+        warning: "Lluvia persistente"
+      },
+      cumulonimbus: {
+        name: "Cumulonimbos",
+        forecast: "Tormenta probable",
+        warning: "Tormenta eléctrica, lluvia intensa, viento fuerte"
+      },
+      altostratus: {
+        name: "Altoestratos",
+        forecast: "Cambio de tiempo probable",
+        warning: "Posible lluvia en próximas horas"
+      },
+      altocumulus: {
+        name: "Altocúmulos",
+        forecast: "Inestabilidad en altura",
+        warning: "Posibles tormentas más tarde"
+      },
+      stratocumulus: {
+        name: "Estratocúmulos",
+        forecast: "Nubosidad baja sin gran desarrollo",
+        warning: "Generalmente sin riesgo"
+      },
+      cirrostratus: {
+        name: "Cirrostratos",
+        forecast: "Frente cálido aproximándose",
+        warning: "Precipitación en próximas horas"
+      },
+      cirrocumulus: {
+        name: "Cirrocúmulos",
+        forecast: "Inestabilidad en capas altas",
+        warning: "Posible empeoramiento"
+      },
+      contrail: {
+        name: "Estelas de avión",
+        forecast: "Alta humedad en altura",
+        warning: "Posible cambio de tiempo"
+      },
+      no_cloud: {
+        name: "Sin nubes",
+        forecast: "Cielo despejado, condiciones estables",
+        warning: "Ninguno"
+      }
+    },
+    common: {
+      save: "Guardar Cambios",
+      saving: "Guardando...",
+      cancel: "Cancelar",
+      delete: "Eliminar",
+      confirm: "Confirmar",
+      back: "Volver",
+      loading: "Cargando...",
+      error: "Error",
+      success: "Éxito",
+      system: "Sistema",
+      light: "Claro",
+      dark: "Oscuro",
+      english: "Inglés",
+      spanish: "Español",
+      accept: "Aceptar",
+      latitude: "Lat",
+      longitude: "Lng",
+      guest: "Invitado",
+      user: "Usuario",
+      connecting: "Conectando...",
+      successExclamation: "¡Éxito!",
+      connectionError: "Fallo de conexión",
+      serverError: "Error al conectar con el servidor.",
+      denied: "Denegado",
+      wait: "Por favor espera...",
+      ok: "Aceptar"
+    },
+    profile: {
+      title: "Mi Perfil",
+      username: "Nombre de usuario",
+      usernamePlaceholder: "Escribe tu nombre",
+      guestPreferencesTitle: "Preferencias de invitado",
+      guestPreferencesDesc: "En modo invitado puedes cambiar el tema y el idioma. Para editar tu nombre o eliminar una cuenta, inicia sesión.",
+      appearance: "Apariencia",
+      appearanceDesc: "Personaliza el tema de la aplicación.",
+      language: "Idioma",
+      languageDesc: "Elige tu idioma preferido.",
+      dangerZone: "Zona de peligro",
+      dangerDesc: "Una vez elimines tu cuenta, no hay vuelta atrás. Por favor asegura tu decisión.",
+      deleteAccount: "Eliminar Cuenta",
+      deleteConfirmTitle: "¿Eliminar cuenta?",
+      deleteConfirmBody: "Esta acción es permanente y eliminará todos tus análisis. ¿Estás seguro de continuar?",
+      yesDelete: "Sí, eliminar",
+      updated: "Perfil actualizado",
+      updatedDesc: "Tu nombre de usuario ha sido actualizado correctamente.",
+      securityFail: "Fallo de seguridad",
+      reauthRequired: "Para borrar tu cuenta debes haber iniciado sesión recientemente por motivos de seguridad. Por favor cierra sesión, vuelve a entrar e inténtalo de nuevo.",
+      deleteDataError: "Error al eliminar datos",
+      deleteDataErrorDesc: "Algo salió mal al borrar tus archivos u operaciones asociadas. Intenta de nuevo."
+    },
+    home: {
+      title: "Inicio",
+      welcome: "¡Bienvenido!",
+      quickActions: "Acciones rápidas",
+      analyzeImage: "Analizar Imagen",
+      analyzeDesc: "Sube una foto de nubes para análisis",
+      history: "Historial",
+      historyDesc: "Revisa tus análisis anteriores",
+      logout: "Cerrar Sesión",
+      logoutDesc: "Salir de tu cuenta actual"
+    },
+    analysisDetail: {
+      title: "Detalle del Análisis",
+      status: "Estado",
+      date: "Fecha",
+      location: "Ubicación",
+      results: "Resultados",
+      forecast: "Previsión",
+      warnings: "Alertas",
+      noClouds: "No se detectaron nubes",
+      noList: "No se encontraron análisis. Analiza tu primera imagen para ver sus resultados. ",
+      unknownType: "Tipo de nube desconocido",
+      completed: "Completado",
+      analyzing: "Analizando",
+      failed: "Fallido",
+      cancelled: "Cancelado",
+      cancelAnalysis: "Cancelar Análisis",
+      deleteAnalysis: "Eliminar Análisis",
+      confirmCancelTitle: "Cancelar Análisis",
+      confirmCancelBody: "¿Estás seguro de que deseas cancelar este análisis?",
+      yesCancel: "Sí, cancelar",
+      confirmDeleteTitle: "Eliminar Análisis",
+      confirmDeleteBody: "¿Estás seguro de que deseas eliminar este análisis permanentemente?",
+      yesDelete: "Sí, eliminar",
+      imageError: "Error al cargar la imagen",
+      deleteError: "No se pudo eliminar el análisis.",
+      cancelError: "No se pudo cancelar el análisis."
+    },
+    capture: {
+      title: "Tomar Foto",
+      gallery: "Galería",
+      analyze: "Analizar",
+      explainability: "Incluir cajas delimitadoras (Más lento)",
+      locationUnknown: "Ubicación desconocida",
+      subtitle: "Selecciona una de las siguientes opciones para subir una fotografía y analizarla. El sistema identificará automáticamente las nubes encontradas.",
+      cameraDesc: "Usa la cámara en tiempo real",
+      galleryDesc: "Elige una imagen existente",
+      explainabilityName: "Explicabilidad",
+      explainabilityWarning: "Si se activa la explicabilidad, la precisión del análisis puede disminuir, y la función puede no funcionar siempre como se esperaba.",
+      formatInfo: "Formatos soportados: Solo JPG.",
+      maxSizeInfo: "Tamaño máximo de imagen: 5MB.",
+      obtainingLocation: "Obteniendo ubicación...",
+      preparingUpload: "Preparando envío...",
+      obtainingNotifications: "Obteniendo notificaciones de la sesión...",
+      preparingImage: "Preparando imagen...",
+      optimizingFormat: "Optimizando formato...",
+      uploadingImage: "Subiendo imagen...",
+      secondsWait: "Esto puede tardar unos segundos",
+      imageSent: "Imagen enviada",
+      imageSentDesc: "Te notificaremos automáticamente cuando se termine el análisis y será guardado en tu historial.",
+      imageTooLarge: "La imagen supera el límite permitido de 5MB.",
+      uploadError: "Hubo un problema al enviar la imagen al servidor.",
+      unknownCity: "Ciudad desconocida",
+      unknownCountry: "País desconocido",
+      unknownLocation: "Ubicación desconocida"
+    },
+    welcome: {
+      title: "Meteorólogo de bolsillo",
+      subtitle: "Analiza el tiempo y las nubes con tu móvil.",
+      guest: "Continuar como invitado"
+    },
+    auth: {
+      login: "Iniciar Sesión",
+      welcomeBack: "Bienvenido de nuevo",
+      loginDesc: "Ingresa tus credenciales para acceder al panel de control.",
+      email: "Correo electrónico",
+      password: "Contraseña",
+      google: "Continuar con Google",
+      forgotPassword: "¿Olvidaste tu contraseña?",
+      noAccount: "¿No tienes cuenta? ",
+      register: "Regístrate",
+      createAccount: "Crear Cuenta",
+      registerDesc: "Regístrate para poder acceder a tus análisis pasados.",
+      username: "Nombre de usuario",
+      confirmPassword: "Confirmar contraseña",
+      doRegister: "Registrarse",
+      haveAccount: "¿Ya tienes cuenta? ",
+      doLogin: "Inicia sesión",
+      permissionDenied: "Permiso denegado",
+      cameraPermissionRequired: "El permiso de cámara es necesario para utilizar esta funcionalidad.",
+      galleryPermissionRequired: "El permiso de galería es necesario para utilizar esta funcionalidad.",
+      invalidJpg: "El sistema únicamente acepta imágenes en formato JPG.",
+      betterExperience: "Mejor experiencia",
+      permissionPrompt: "Para el correcto funcionamiento de ClimaNuvem, necesitamos permiso de Ubicación (para saber dónde avistaste la nube) y Notificaciones (para avisarte cuando el análisis esté listo). ¿Deseas continuar?",
+      googleNotAvailable: "Google Sign-in no disponible",
+      googleNotAvailableDesc: "Esta funcionalidad no está disponible en este entorno (ej. Expo Go).",
+      googleError: "Error con Google",
+      googleErrorDesc: "Ocurrió un error al intentar iniciar sesión con Google.",
+      invalidEmail: "Por favor, introduce un correo electrónico válido.",
+      resetPasswordFirst: "Por favor, introduce tu correo electrónico primero para restablecer la contraseña.",
+      emailSent: "Correo enviado",
+      resetPasswordEmailSent: "Se ha enviado un enlace para restablecer tu contraseña a tu correo electrónico.",
+      resetError: "Error al restablecer",
+      usernameLength: "El nombre de usuario debe tener entre 3 y 20 caracteres.",
+      passwordLength: "La contraseña debe tener al menos 6 caracteres.",
+      passwordsDoNotMatch: "Las contraseñas no coinciden.",
+      registrationSuccess: "Registro exitoso",
+      verificationEmailSent: "Hemos enviado un correo de verificación. Por favor, verifica tu correo antes de iniciar sesión."
+    },
+    authErrors: {
+      "invalid-email": "El formato del correo electrónico no es válido.",
+      "user-not-found": "No existe una cuenta con este correo electrónico.",
+      "wrong-password": "La contraseña es incorrecta.",
+      "invalid-credential": "Credenciales incorrectas. Revisa tu correo y contraseña.",
+      "missing-email": "Falta el correo electrónico.",
+      "too-many-requests": "Demasiados intentos. Inténtalo de nuevo más tarde.",
+      "user-disabled": "Esta cuenta ha sido deshabilitada.",
+      "email-not-verified": "Debes verificar tu correo electrónico antes de iniciar sesión. Por favor, revisa tu bandeja de entrada y carpeta de spam.",
+      "email-already-in-use": "Este correo electrónico ya está en uso por otra cuenta.",
+      "operation-not-allowed": "La creación de cuentas con correo y contraseña no está habilitada.",
+      "weak-password": "La contraseña es demasiado débil (debe tener al menos 6 caracteres).",
+      "password-does-not-meet-requirements": "La contraseña debe contener al menos una letra mayúscula y un número.",
+      "default": "Error de autenticación"
+    }
+  }
+};
