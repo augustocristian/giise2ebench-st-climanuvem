@@ -1,0 +1,14 @@
+node_modules/
+cypress/downloads/
+cypress/screenshots/
+cypress/videos/
+cypress/results/
+cypress/fixtures/accounts.local.csv
+cypress.env.json
+*.log
+
+.idea/
+.vscode/
+
+# Cloned SUT — not used here, sut/ already lives at the repo root
+.epi-climanuvem/*
