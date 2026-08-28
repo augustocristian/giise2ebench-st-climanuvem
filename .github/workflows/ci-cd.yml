@@ -176,7 +176,7 @@ jobs:
         working-directory: sut/frontend
 
       - name: Run SonarCloud analysis
-        uses: SonarSource/sonarqube-scan-action@v6
+        uses: SonarSource/sonarqube-scan-action@v8
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
