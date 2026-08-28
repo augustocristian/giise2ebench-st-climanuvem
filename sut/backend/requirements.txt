@@ -48,4 +48,4 @@ urllib3==2.6.3
 uvicorn==0.42.0
 sqlalchemy==2.0.52
 psycopg2-binary==2.9.12
-python-multipart==0.0.22
+python-multipart==0.0.32
