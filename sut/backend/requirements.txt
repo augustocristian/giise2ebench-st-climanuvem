@@ -1,6 +1,6 @@
 annotated-doc==0.0.4
 annotated-types==0.7.0
-alembic==1.17.2
+alembic==1.19.1
 anyio==4.12.1
 CacheControl==0.14.4
 certifi==2026.2.25
@@ -46,6 +46,6 @@ typing-inspection==0.4.2
 typing_extensions==4.15.0
 urllib3==2.6.3
 uvicorn==0.42.0
-sqlalchemy==2.0.43
+sqlalchemy==2.0.52
 psycopg2-binary==2.9.12
 python-multipart==0.0.22
