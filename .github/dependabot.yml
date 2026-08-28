@@ -1,0 +1,157 @@
+# Dependabot configuration for giise2ebench-st-climanuvem.
+#
+# sut/ hosts two independently-versioned apps (FastAPI backend, Expo frontend) plus their
+# Dockerfiles, and this repo's own GitHub Actions workflows live at the root. Each ecosystem
+# below is grouped so that packages which must move in lockstep (the Expo SDK train, the
+# React Navigation suite, the Pydantic/Starlette stack FastAPI pins against, the Firebase/
+# Google Cloud dependency tree, SQLAlchemy+Alembic, etc.) land in a single PR instead of
+# several PRs that would be broken individually until all siblings are updated together.
+
+version: 2
+updates:
+  # --- Backend: FastAPI service (sut/backend) ---
+  - package-ecosystem: "pip"
+    directory: "/sut/backend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "chore(backend deps)"
+    assignees:
+      - "augustocristian"
+    labels:
+      - "backend"
+      - "backend-ai"
+    groups:
+      fastapi-pydantic:
+        # fastapi pins a compatible starlette range, and pydantic v2 ships pydantic_core
+        # plus its own typing helpers as separate packages that must match minor-for-minor.
+        patterns:
+          - "fastapi"
+          - "starlette"
+          - "pydantic*"
+          - "annotated-doc"
+          - "annotated-types"
+          - "typing-inspection"
+      firebase-google-cloud:
+        # firebase_admin depends on the google-cloud-* / google-auth / grpcio / protobuf
+        # tree; bumping one without the others routinely breaks import-time compatibility.
+        patterns:
+          - "firebase*"
+          - "google-*"
+          - "google_*"
+          - "googleapis-*"
+          - "grpcio*"
+          - "proto-plus"
+          - "protobuf"
+          - "pyasn1*"
+      sqlalchemy:
+        # alembic tracks the sqlalchemy major/minor it supports.
+        patterns:
+          - "sqlalchemy"
+          - "alembic"
+      http-stack:
+        # httpx's transport (httpcore) and httpcore's http/2 support (h2 + hpack/hyperframe)
+        # are released as a coordinated stack, with anyio underpinning both.
+        patterns:
+          - "httpx"
+          - "httpcore"
+          - "h11"
+          - "h2"
+          - "hpack"
+          - "hyperframe"
+          - "anyio"
+      pytest:
+        patterns:
+          - "pytest*"
+      sphinx:
+        patterns:
+          - "sphinx*"
+
+  # --- Frontend: Expo / React Native app (sut/frontend) ---
+  - package-ecosystem: "npm"
+    directory: "/sut/frontend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "chore(frontend deps)"
+    assignees:
+      - "augustocristian"
+    labels:
+      - "frontend"
+    groups:
+      expo-sdk:
+        # The Expo SDK pins compatible versions of every expo-* package plus react,
+        # react-dom, react-native, and the react-native-* libs it manages (reanimated,
+        # gesture-handler, safe-area-context, screens, worklets, web). `expo install`
+        # always bumps these as one unit, so Dependabot should too.
+        patterns:
+          - "expo"
+          - "expo-*"
+          - "@expo/*"
+          - "react"
+          - "react-dom"
+          - "react-native"
+          - "react-native-*"
+          - "@types/react"
+      react-navigation:
+        # @react-navigation/* packages are released together as a suite.
+        patterns:
+          - "@react-navigation/*"
+      testing:
+        # jest-expo pins the jest version it supports.
+        patterns:
+          - "jest"
+          - "jest-*"
+          - "@types/jest"
+      linting:
+        # eslint-config-expo pins the eslint range it supports.
+        patterns:
+          - "eslint"
+          - "eslint-*"
+
+  # --- Dockerfiles ---
+  - package-ecosystem: "docker"
+    directory: "/sut/backend"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore(backend docker)"
+    assignees:
+      - "augustocristian"
+    labels:
+      - "backend"
+      - "docker"
+
+  - package-ecosystem: "docker"
+    directory: "/sut/frontend"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore(frontend docker)"
+    assignees:
+      - "augustocristian"
+    labels:
+      - "frontend"
+      - "docker"
+
+  # --- GitHub Actions workflows (always read from .github/workflows at the repo root,
+  #     regardless of where the code they build lives) ---
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore(ci)"
+    assignees:
+      - "augustocristian"
+    labels:
+      - "actions"
+    groups:
+      actions:
+        # First-party actions/* actions are released in lockstep as a suite; third-party
+        # actions pinned by commit SHA (dorny/paths-filter, SonarSource, softprops) are
+        # left ungrouped so their SHA bumps get individual review.
+        patterns:
+          - "actions/*"

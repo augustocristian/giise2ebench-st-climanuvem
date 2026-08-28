@@ -15,16 +15,21 @@ This file gives Claude Code (and other agentic tools) the context needed to work
 ├── sut/                    # the System Under Test: "ClimaNuvem" (imported as-is)
 │   ├── backend/             # FastAPI service
 │   ├── frontend/            # Expo / React Native app
-│   ├── docs/                 # Sphinx technical docs (SUT's own, auto-published to GitHub Pages)
+│   ├── docs/                 # Sphinx technical docs (source only — see CI/CD below for publishing)
 │   ├── images/               # architecture diagrams + UI screenshots used in sut/README.md
 │   ├── sonar-project.properties
 │   ├── CITATION.cff
 │   └── README.md             # full upstream documentation for ClimaNuvem (authoritative for the SUT)
+├── .github/
+│   ├── workflows/ci-cd.yml # this wrapper repo's own CI/CD (see CI/CD below) — sut/ has none of its own
+│   └── dependabot.yml       # dependency update config for both sut/ ecosystems + this repo's Actions
 ├── .gitignore               # root-level ignores (IDE noise + generic project rubbish)
 └── deploy.sh / deploy.ps1   # convenience wrapper to stand up (and tear down) the SUT locally
 ```
 
-**When making changes:** treat `sut/` as a vendored/imported tree. Prefer not to restructure it; if the SUT itself needs a fix, keep the change minimal and consistent with its existing conventions (see `sut/README.md`, which is the authoritative and very detailed source of truth for that application). Everything at the repo root (this file, `.gitignore`, `deploy.*`, `stop.*`, `docs/`) is bench-repo tooling and is fair game to evolve freely.
+**When making changes:** treat `sut/` as a vendored/imported tree. Prefer not to restructure it; if the SUT itself needs a fix, keep the change minimal and consistent with its existing conventions (see `sut/README.md`, which is the authoritative and very detailed source of truth for that application). Everything at the repo root (this file, `.gitignore`, `deploy.*`, `.github/`, `docs/`) is bench-repo tooling and is fair game to evolve freely.
+
+Note: `sut/README.md` describes a `.github/workflows/ci-cd.yml` and auto-published Sphinx docs as part of upstream ClimaNuvem — that refers to the *upstream* `uo289165/epi-climanuvem` repository's own CI. The imported `sut/` tree in this repo does **not** include a `.github/` directory, so this wrapper repo has its own CI/CD and Dependabot config at the root instead (see below), adapted to the `sut/backend` / `sut/frontend` paths used here.
 
 ## What Is ClimaNuvem (the SUT)
 
@@ -121,7 +126,42 @@ SonarCloud analysis (`sut/sonar-project.properties`) reads `sut/backend/coverage
 
 ## CI/CD
 
-Defined upstream in the SUT's own `.github/workflows/ci-cd.yml` (part of the imported `sut/` tree, not this wrapper repo's CI). It runs backend `pytest` and frontend `lint`/`test` by changed path, reports coverage to SonarCloud, and — on `frontend/` changes on `main` — builds and publishes a signed Android release APK to GitHub Releases. See [`sut/README.md`](sut/README.md#cicd) for required secrets.
+This wrapper repo defines its own workflow at [`.github/workflows/ci-cd.yml`](.github/workflows/ci-cd.yml), adapted from ClimaNuvem's upstream pipeline but pointed at `sut/backend` and `sut/frontend`. Triggers: `pull_request`, `push` (any branch), and `workflow_dispatch` (with a `build_android` boolean input to force an APK build). Stages:
+
+1. **`changes`** — `dorny/paths-filter` diffs `sut/backend/**` and `sut/frontend/**` to decide which downstream jobs run; a manual `workflow_dispatch` run always treats both as changed.
+2. **`backend-tests`** (needs `changes`, runs iff backend changed) — Python 3.10, installs `sut/backend/requirements.txt` + `requirements-dev.txt`, runs `pytest`.
+3. **`frontend-tests`** (needs `changes`, runs iff frontend changed) — Node 22, restores `google-services.json` from the `GOOGLE_SERVICES_JSON_BASE64` secret when present (lint/test proceed without it otherwise), `npm ci`, `npm run lint`, `npm test`.
+4. **`sonarcloud`** (needs `changes`, runs iff either side changed or on manual dispatch) — regenerates backend (`pytest`, writing `coverage.xml`) and frontend (`npm run test:coverage`, writing `coverage/lcov.info`) coverage, then runs `SonarSource/sonarqube-scan-action` with `projectBaseDir: sut` so it picks up [`sut/sonar-project.properties`](sut/sonar-project.properties) (whose paths are relative to `sut/`). Requires the `SONAR_TOKEN` secret.
+5. **`deploy-docs`** — only on `push` to `main` or a tag. Builds the Sphinx docs (`sphinx-build -b html docs docs/_build/html`, run with `working-directory: sut` so `sut/docs/conf.py`'s `../backend` import path resolves) and publishes `sut/docs/_build/html` to GitHub Pages via `actions/upload-pages-artifact` + `actions/deploy-pages` (needs the `github-pages` environment enabled in repo settings).
+6. **`android-release-apk`** (needs `changes` + `frontend-tests`) — runs when `frontend/` changed on a `main` push, or when manually dispatched with `build_android=true`. Validates all required secrets are present first, restores the release keystore and `google-services.json` from base64 secrets, writes `MYAPP_UPLOAD_*` Gradle properties (matching the signing config already wired into [`sut/frontend/android/app/build.gradle`](sut/frontend/android/app/build.gradle)), runs `./gradlew assembleRelease`, and publishes the signed APK as both a workflow artifact and a GitHub Release tagged `frontend-v1.0.0-<run_number>`.
+7. **`e2e-selenium-java`**, **`e2e-playwright-csharp`**, **`e2e-cypress-javascript`**, **`e2e-puppeteer-python`** — **placeholders**, one per E2E benchmark tool/language combination. Each currently only checks out the repo and echoes a `TODO`; none stand up the SUT or run a real suite yet. They run unconditionally (no `needs`/`if` gating) so the stage names are visible in the Actions UI as the benchmark grows. When implementing one, give it the toolchain setup it actually needs (e.g. `actions/setup-java` + Maven/Gradle for Selenium, `actions/setup-dotnet` for Playwright, `actions/setup-node` for Cypress, `actions/setup-python` for Puppeteer), a way to stand up the SUT (likely reusing `./deploy.sh backend`/`./deploy.sh frontend` or a dedicated CI-only compose profile), and remove the placeholder `Placeholder` step.
+
+Required repository secrets: `SONAR_TOKEN`; `GOOGLE_SERVICES_JSON_BASE64` (optional for steps 3–4, required for step 6); `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`; and the `EXPO_PUBLIC_*` Firebase/backend-URL values, all only needed for step 6. See [`sut/README.md`](sut/README.md#cicd) for what each one is for — the secret *names* and *purposes* are unchanged from upstream, only the file paths inside the jobs differ.
+
+## Dependabot
+
+[`.github/dependabot.yml`](.github/dependabot.yml) covers every ecosystem in the repo: `pip` (`/sut/backend`), `npm` (`/sut/frontend`), `docker` (`/sut/backend` and `/sut/frontend`, one entry each for their `Dockerfile`), and `github-actions` (`/`, since workflow files always live at the repo root regardless of where the code they build lives). All run on a weekly schedule.
+
+Several dependencies in this stack are only safe to upgrade as a set — bumping one without its siblings breaks compatibility until the rest catch up — so each ecosystem defines `groups` to bundle them into a single PR instead of one PR per package:
+
+- **`pip` (`sut/backend`)**: `fastapi-pydantic` (fastapi + starlette + the pydantic v2 family), `firebase-google-cloud` (firebase_admin + the whole `google-*`/`grpcio`/`protobuf` tree it depends on), `sqlalchemy` (sqlalchemy + alembic), `http-stack` (httpx + httpcore + h2/hpack/hyperframe + anyio), plus `pytest` and `sphinx` groups for the dev dependencies.
+- **`npm` (`sut/frontend`)**: `expo-sdk` — the big one — groups `expo`, every `expo-*`/`@expo/*` package, `react`, `react-dom`, `react-native`, and every `react-native-*` package (reanimated, gesture-handler, safe-area-context, screens, worklets, web) plus `@types/react`, because the Expo SDK pins a single compatible version set across all of these and `expo install` always bumps them together — letting Dependabot open them as separate PRs would leave the tree in a broken, half-upgraded state between merges. Also `react-navigation` (`@react-navigation/*`, released as a suite), `testing` (`jest`/`jest-expo`/`@types/jest`), and `linting` (`eslint`/`eslint-config-expo`).
+- **`github-actions` (`/`)**: an `actions` group for first-party `actions/*` actions (checkout, setup-python, setup-node, setup-java, upload-artifact, upload-pages-artifact, deploy-pages). The SHA-pinned third-party actions (`dorny/paths-filter`, `SonarSource/sonarqube-scan-action`, `softprops/action-gh-release`) are left ungrouped so their pin bumps get individual review.
+- **`docker`**: no groups — each Dockerfile has a single `FROM` base image, so there are no siblings to bundle.
+
+When touching dependency versions by hand (not via Dependabot), keep the same "move together" sets in mind — e.g. don't bump a single `expo-*` package without checking it against the Expo SDK version, and don't bump `fastapi` without checking its `starlette` pin.
+
+Every update block also sets `assignees: [augustocristian]` and per-ecosystem `labels`, applied to every PR that block opens (Dependabot doesn't support per-group labels, only per-block, which is why the `backend-ai` label below lands on *all* `sut/backend` pip PRs rather than a narrower subset — there's no pip dependency that's cleanly "AI-only" in this stack anyway, since the classification model is called over plain HTTP to Ollama rather than through a pip-installed client):
+
+| Update block | Labels |
+| --- | --- |
+| `pip` (`/sut/backend`) | `backend`, `backend-ai` |
+| `npm` (`/sut/frontend`) | `frontend` |
+| `docker` (`/sut/backend`) | `backend`, `docker` |
+| `docker` (`/sut/frontend`) | `frontend`, `docker` |
+| `github-actions` (`/`) | `actions` |
+
+**Labels must already exist in the GitHub repo** — Dependabot does not create missing labels, it silently skips applying ones that aren't there. Before this config takes effect, create `backend`, `backend-ai`, `frontend`, `docker`, and `actions` as repository labels (Settings → Labels, or `gh label create`).
 
 ## Conventions For This Repo
 
@@ -129,3 +169,4 @@ Defined upstream in the SUT's own `.github/workflows/ci-cd.yml` (part of the imp
 - **Secrets**: never commit `.env` files, `firebase_key.json`, `google-services.json`, Android keystores, or any other credential. These are already covered by `.gitignore` at the appropriate level.
 - **Don't restructure `sut/`** casually — it tracks an upstream project. If you need to patch it, keep the diff minimal and aligned with its existing layered architecture (presentation/business/data/infrastructure on the backend; views/controllers/services on the frontend).
 - **Formal requirements** in `docs/*.txt` describe expected user-facing behavior (auth, registration, upload, analysis, forecasting, warnings, cancellation, history, explainability) and are the reference for what the benchmark's E2E scenarios should cover.
+- **CI/Dependabot paths**: both [`.github/workflows/ci-cd.yml`](.github/workflows/ci-cd.yml) and [`.github/dependabot.yml`](.github/dependabot.yml) hardcode the `sut/backend` / `sut/frontend` prefixes. If `sut/` is ever restructured (it shouldn't be casually, per above) or the SUT is re-vendored from a newer upstream snapshot, re-check both files against the actual paths and dependency manifests rather than assuming they still match.
