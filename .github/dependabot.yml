@@ -1,11 +1,15 @@
 # Dependabot configuration for giise2ebench-st-climanuvem.
 #
 # sut/ hosts two independently-versioned apps (FastAPI backend, Expo frontend) plus their
-# Dockerfiles, and this repo's own GitHub Actions workflows live at the root. Each ecosystem
-# below is grouped so that packages which must move in lockstep (the Expo SDK train, the
+# Dockerfiles, and this repo's own GitHub Actions workflows live at the root.
+#
+# `groups` is used ONLY where packages are genuine version-lockstep siblings — bumping one
+# without the other breaks the build/runtime until both catch up (the Expo SDK train, the
 # React Navigation suite, the Pydantic/Starlette stack FastAPI pins against, the Firebase/
-# Google Cloud dependency tree, SQLAlchemy+Alembic, etc.) land in a single PR instead of
-# several PRs that would be broken individually until all siblings are updated together.
+# Google Cloud dependency tree, SQLAlchemy+Alembic, etc.). It is deliberately NOT used just
+# to bucket packages that happen to share a theme or ecosystem (e.g. "testing tools", "docs
+# tools", "GitHub Actions") when there's no real compatibility constraint between them —
+# those update and get reviewed independently, one PR per package.
 
 version: 2
 updates:
@@ -14,9 +18,11 @@ updates:
     directory: "/sut/backend"
     schedule:
       interval: "weekly"
+    rebase-strategy: "disabled"
     open-pull-requests-limit: 10
     commit-message:
       prefix: "chore(backend deps)"
+      include: "scope"
     assignees:
       - "augustocristian"
     labels:
@@ -61,21 +67,18 @@ updates:
           - "hpack"
           - "hyperframe"
           - "anyio"
-      pytest:
-        patterns:
-          - "pytest*"
-      sphinx:
-        patterns:
-          - "sphinx*"
 
   # --- Frontend: Expo / React Native app (sut/frontend) ---
   - package-ecosystem: "npm"
     directory: "/sut/frontend"
     schedule:
       interval: "weekly"
+    rebase-strategy: "disabled"
     open-pull-requests-limit: 10
     commit-message:
       prefix: "chore(frontend deps)"
+      prefix-development: "chore(frontend dev-deps)"
+      include: "scope"
     assignees:
       - "augustocristian"
     labels:
@@ -116,8 +119,10 @@ updates:
     directory: "/sut/backend"
     schedule:
       interval: "weekly"
+    rebase-strategy: "disabled"
     commit-message:
       prefix: "chore(backend docker)"
+      include: "scope"
     assignees:
       - "augustocristian"
     labels:
@@ -128,8 +133,10 @@ updates:
     directory: "/sut/frontend"
     schedule:
       interval: "weekly"
+    rebase-strategy: "disabled"
     commit-message:
       prefix: "chore(frontend docker)"
+      include: "scope"
     assignees:
       - "augustocristian"
     labels:
@@ -138,20 +145,19 @@ updates:
 
   # --- GitHub Actions workflows (always read from .github/workflows at the repo root,
   #     regardless of where the code they build lives) ---
+  # Intentionally ungrouped: unlike the pip/npm ecosystems above, no two actions in
+  # ci-cd.yml have a version constraint on each other, so there's no "sibling" risk in
+  # letting each one (actions/checkout, actions/setup-python, dorny/paths-filter, etc.)
+  # update and get reviewed independently.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
+    rebase-strategy: "disabled"
     commit-message:
       prefix: "chore(ci)"
+      include: "scope"
     assignees:
       - "augustocristian"
     labels:
       - "actions"
-    groups:
-      actions:
-        # First-party actions/* actions are released in lockstep as a suite; third-party
-        # actions pinned by commit SHA (dorny/paths-filter, SonarSource, softprops) are
-        # left ungrouped so their SHA bumps get individual review.
-        patterns:
-          - "actions/*"
