@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   Modal,
   View,
@@ -155,14 +155,20 @@ export const HistoryModal = ({ visible, onClose, history, loading, onRefresh, in
   const styles = getHistoryModalStyles(theme);
   
   const [selectedAnalysis, setSelectedAnalysis] = useState<AnalysisHistoryItem | null>(null);
+  const [appliedInitialSelectionId, setAppliedInitialSelectionId] = useState<string | null | undefined>(undefined);
   const translateY = useSharedValue(0);
 
-  React.useEffect(() => {
-    if (initialSelectedAnalysisId && history.length > 0) {
-      const found = history.find(a => a.id === initialSelectedAnalysisId);
-      if (found) setSelectedAnalysis(found);
+  if (
+    initialSelectedAnalysisId &&
+    initialSelectedAnalysisId !== appliedInitialSelectionId &&
+    history.length > 0
+  ) {
+    const found = history.find(a => a.id === initialSelectedAnalysisId);
+    if (found) {
+      setAppliedInitialSelectionId(initialSelectedAnalysisId);
+      setSelectedAnalysis(found);
     }
-  }, [initialSelectedAnalysisId, history]);
+  }
 
   const handleClose = () => {
     translateY.value = 0;

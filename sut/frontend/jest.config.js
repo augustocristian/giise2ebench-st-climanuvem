@@ -1,5 +1,14 @@
+const path = require('node:path');
+
+// jest-expo's setup requires `expo-modules-core` directly, but npm nests it under
+// expo/node_modules rather than hoisting it (a peer-dependency conflict on
+// react-native-worklets prevents hoisting to the top level). Add expo's own
+// node_modules as a module lookup directory so Jest can still resolve it.
+const expoNodeModules = path.join(path.dirname(require.resolve('expo/package.json')), 'node_modules');
+
 module.exports = {
   preset: 'jest-expo',
+  moduleDirectories: ['node_modules', expoNodeModules],
   moduleNameMapper: {
     '^@/src/config/firebaseConfig$': '<rootDir>/__tests__/mocks/firebaseConfigMock.ts',
     '^@/src/services/LoggerService$': '<rootDir>/__tests__/mocks/LoggerServiceMock.ts',
