@@ -23,3 +23,8 @@ secrets/
 uploads/
 .coverage
 coverage.xml
+logs/
+
+# Poetry local configuration file (machine-specific settings, e.g. virtualenvs.path)
+# https://python-poetry.org/docs/configuration/#local-configuration
+poetry.toml

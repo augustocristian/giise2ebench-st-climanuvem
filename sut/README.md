@@ -59,8 +59,9 @@ The technical documentation of the backend is auto-generated with **Sphinx** fro
 To build it locally:
 
 ```bash
-pip install -r backend/requirements.txt -r backend/requirements-dev.txt
-sphinx-build -b html docs docs/_build/html
+cd backend
+poetry install --with docs
+poetry run sphinx-build -b html ../docs ../docs/_build/html
 ```
 
 ## Application UI
@@ -112,7 +113,7 @@ Local deployment requires configuring the backend and frontend separately. Docke
 
 ### Requirements
 
-- Python 3.10 for running the backend manually.
+- Python 3.12+ and [Poetry](https://python-poetry.org/) for running the backend manually.
 - Docker and Docker Compose for running the backend, PostgreSQL, and Ollama in containers.
 - Node.js 22 and npm for the frontend.
 - Android Studio if you want to run the native app with `npm run android`.
@@ -191,10 +192,8 @@ Install dependencies and start the API:
 
 ```bash
 cd backend
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+poetry install
+poetry run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 On startup, the backend creates the required tables if they do not exist and initializes the cloud catalog when it is empty.
@@ -282,8 +281,8 @@ Backend:
 
 ```bash
 cd backend
-pip install -r requirements.txt -r requirements-dev.txt
-pytest
+poetry install --with test
+poetry run pytest
 ```
 
 Frontend:
