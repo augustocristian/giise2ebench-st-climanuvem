@@ -29,6 +29,7 @@ const getSystemLocale = () => {
 };
 
 // @ts-ignore: TS sugiere usar el export nombrado, pero necesitamos la instancia principal
+// eslint-disable-next-line import/no-named-as-default-member -- intentional: chaining on the default i18next instance
 i18n
   .use(initReactI18next)
   .init({

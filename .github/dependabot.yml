@@ -88,7 +88,13 @@ updates:
         # The Expo SDK pins compatible versions of every expo-* package plus react,
         # react-dom, react-native, and the react-native-* libs it manages (reanimated,
         # gesture-handler, safe-area-context, screens, worklets, web). `expo install`
-        # always bumps these as one unit, so Dependabot should too.
+        # always bumps these as one unit, so Dependabot should too. jest and jest-expo
+        # are included here (not in `testing`) because jest-expo's own dependency tree
+        # (and the react-native jest preset it wraps) is pinned to a specific jest major
+        # and a specific react-native/SDK generation, not just to "a jest version" —
+        # react-native 0.81->0.87 outrunning jest-expo broke `npm test` by dropping a
+        # module jest-expo's preset still mocks unconditionally, and jest-expo's own
+        # jest 29-pinned internals conflict with a standalone jest major bump.
         patterns:
           - "expo"
           - "expo-*"
@@ -98,21 +104,30 @@ updates:
           - "react-native"
           - "react-native-*"
           - "@types/react"
+          - "jest"
+          - "jest-expo"
       react-navigation:
         # @react-navigation/* packages are released together as a suite.
         patterns:
           - "@react-navigation/*"
       testing:
-        # jest-expo pins the jest version it supports.
+        # Type definitions only — no runtime coupling to the jest/jest-expo/
+        # react-native versions grouped under expo-sdk above.
         patterns:
-          - "jest"
-          - "jest-*"
           - "@types/jest"
       linting:
-        # eslint-config-expo pins the eslint range it supports.
+        # eslint-config-expo pins the eslint range it supports, and its bundled
+        # @typescript-eslint/* tooling in turn pins the typescript range it parses
+        # (typescript ships its own dependent releases well ahead of what
+        # @typescript-eslint supports — a bump here silently broke `npm run lint`
+        # with typescript ~7.0.2 against @typescript-eslint/typescript-estree's
+        # `>=4.8.4 <6.1.0` peer range). Keep typescript and @typescript-eslint/*
+        # moving with eslint/eslint-config-expo as one reviewed unit.
         patterns:
           - "eslint"
           - "eslint-*"
+          - "@typescript-eslint/*"
+          - "typescript"
 
   # --- Dockerfiles ---
   - package-ecosystem: "docker"
