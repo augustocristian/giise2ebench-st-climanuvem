@@ -1,184 +1,140 @@
 # CLAUDE.md
 
-This file gives Claude Code (and other agentic tools) the context needed to work effectively in this repository.
+Context for Claude Code (and other agentic tools) working in this repo.
 
 ## Repository Purpose
 
-`giise2ebench-st-climanuvem` is a **benchmark wrapper repository**. Its job is to host a "system under test" (SUT) — an existing, independently-developed application — so it can be exercised by an external end-to-end testing benchmark/harness. The actual application code lives entirely under [`sut/`](sut/) and was imported from its own upstream repository ([`uo289165/epi-climanuvem`](https://github.com/uo289165/epi-climanuvem)); it is **not authored in this repo**.
+`giise2ebench-st-climanuvem` is a **benchmark wrapper repo**: it hosts a system under test (SUT) — ClimaNuvem, imported as-is from [`uo289165/epi-climanuvem`](https://github.com/uo289165/epi-climanuvem) — so an external E2E benchmark can exercise it. All app code lives under [`sut/`](sut/) and is **not authored here**.
 
 ```
 .
-├── README.md              # one-line placeholder for the wrapper repo itself
-├── docs/                   # formal user requirements consumed by the benchmark, not by the SUT
-│   ├── userrequirements_en.txt
-│   └── userrequirements_es.txt
-├── sut/                    # the System Under Test: "ClimaNuvem" (imported as-is)
-│   ├── backend/             # FastAPI service
-│   ├── frontend/            # Expo / React Native app
-│   ├── docs/                 # Sphinx technical docs (source only — see CI/CD below for publishing)
-│   ├── images/               # architecture diagrams + UI screenshots used in sut/README.md
+├── docs/                    # formal user requirements consumed by the benchmark, not the SUT
+├── sut/                     # System Under Test "ClimaNuvem" (imported as-is)
+│   ├── backend/               # FastAPI service
+│   ├── frontend/              # Expo / React Native app
+│   ├── docs/                  # Sphinx docs source
 │   ├── sonar-project.properties
-│   ├── CITATION.cff
-│   └── README.md             # full upstream documentation for ClimaNuvem (authoritative for the SUT)
+│   └── README.md              # authoritative upstream docs for the SUT
 ├── .github/
-│   ├── workflows/ci-cd.yml # this wrapper repo's own CI/CD (see CI/CD below) — sut/ has none of its own
-│   └── dependabot.yml       # dependency update config for both sut/ ecosystems + this repo's Actions
-├── .gitignore               # root-level ignores (IDE noise + generic project rubbish)
-└── deploy.sh / deploy.ps1   # convenience wrapper to stand up (and tear down) the SUT locally
+│   ├── workflows/ci-cd.yml  # this wrapper repo's own CI/CD — sut/ has none
+│   └── dependabot.yml       # dependency updates for sut/ + this repo's Actions
+└── deploy.sh / deploy.ps1   # convenience wrapper to run the SUT locally
 ```
 
-**When making changes:** treat `sut/` as a vendored/imported tree. Prefer not to restructure it; if the SUT itself needs a fix, keep the change minimal and consistent with its existing conventions (see `sut/README.md`, which is the authoritative and very detailed source of truth for that application). Everything at the repo root (this file, `.gitignore`, `deploy.*`, `.github/`, `docs/`) is bench-repo tooling and is fair game to evolve freely.
+**Treat `sut/` as vendored** — don't restructure it; keep any fix minimal and aligned with its existing layered conventions (see `sut/README.md`, authoritative for the SUT). Everything at the repo root is bench-repo tooling, free to evolve.
 
-Note: `sut/README.md` describes a `.github/workflows/ci-cd.yml` and auto-published Sphinx docs as part of upstream ClimaNuvem — that refers to the *upstream* `uo289165/epi-climanuvem` repository's own CI. The imported `sut/` tree in this repo does **not** include a `.github/` directory, so this wrapper repo has its own CI/CD and Dependabot config at the root instead (see below), adapted to the `sut/backend` / `sut/frontend` paths used here.
+Note: `sut/README.md` describes an upstream CI/docs-publishing setup — that's the *upstream* repo's own CI, not present in the imported `sut/` tree here. This wrapper repo has its own CI/CD and Dependabot config at the root instead, adapted to `sut/backend`/`sut/frontend` paths.
 
 ## What Is ClimaNuvem (the SUT)
 
-ClimaNuvem is a mobile application for analyzing cloud photographs and generating a short-term local weather forecast from the detected cloud types. A user signs in (or continues as a guest), captures or picks a photo, the backend classifies the clouds with a multimodal model served by Ollama, and the result — including an optional explainability overlay — is stored and shown in a per-user history.
+Mobile app that analyzes cloud photos and generates a short-term local forecast. User signs in (or guest), captures/picks a photo, backend classifies clouds via a multimodal model served by Ollama, result (with optional explainability overlay) is stored and shown in per-user history.
 
-Stack:
-- **Frontend**: Expo / React Native app (Expo Router), Firebase Auth (email, Google, guest), camera/gallery access, location, Firebase Cloud Messaging push notifications.
-- **Backend**: FastAPI, PostgreSQL persistence, Firebase Admin (token verification), an asynchronous in-process job queue/worker, and an Ollama client for cloud classification.
-- **Formal user requirements** (used by the benchmark to derive test scenarios) live in [`docs/userrequirements_en.txt`](docs/userrequirements_en.txt) and [`docs/userrequirements_es.txt`](docs/userrequirements_es.txt).
-- **E2E system tests** for this SUT are maintained in a separate repository: [augustocristian/retorch-st-climanuvem](https://github.com/augustocristian/retorch-st-climanuvem) (RETORCH framework), not in this repo.
+- **Frontend**: Expo/React Native (Expo Router), Firebase Auth (email/Google/guest), camera/gallery, location, FCM push.
+- **Backend**: FastAPI, PostgreSQL, Firebase Admin (token verification), async in-process job queue/worker, Ollama client.
+- **Formal user requirements**: [`docs/userrequirements_en.txt`](docs/userrequirements_en.txt) / `_es.txt` — reference for benchmark E2E scenarios.
+- **E2E system tests**: separate repo, [augustocristian/retorch-st-climanuvem](https://github.com/augustocristian/retorch-st-climanuvem) (RETORCH), not here.
 
 ### Main user flow
 
-1. User signs in or enters as a guest.
-2. App obtains a JPG image (camera or gallery), optionally attaching location, an FCM token, and an explainability flag.
-3. Backend verifies the Firebase ID token, stores the image, and creates an analysis row in `analyzing` state.
-4. An async worker picks the job off the queue, calls Ollama with a multimodal prompt, and persists cloud types / forecast / bounding boxes to PostgreSQL.
-5. Backend sends a push notification (if an FCM token was supplied) when the analysis finishes or fails.
-6. App polls/reads history and renders results, weather warnings, and bounding boxes when available.
+1. Sign in or continue as guest.
+2. App gets a JPG (camera/gallery), optionally with location, FCM token, explainability flag.
+3. Backend verifies the Firebase ID token, stores the image, creates an analysis row (`analyzing`).
+4. Async worker dequeues, calls Ollama, persists cloud types/forecast/bounding boxes.
+5. Backend push-notifies on finish/fail (if FCM token given).
+6. App reads history, renders results/warnings/bounding boxes.
 
-### Backend architecture (`sut/backend/app/`)
+### Backend (`sut/backend/app/`)
 
-Layered design:
-- **`presentation/`** — HTTP surface. `routes/analysis_routes.py` (mounted at `/analysis`) exposes upload, status/history, cancel, and delete endpoints; `routes/test_routes.py` is a test-only router enabled solely when `TEST_MODE=true`. `dependencies/auth_dependency.py` verifies the Firebase bearer token (or accepts the configured `TEST_TOKEN` in test mode) and injects the current user.
-- **`business/`** — use cases. `analysis_service.py` orchestrates creating/cancelling/deleting analyses; `auth_service.py` wraps auth logic; `worker.py` (`analysis_worker`) is the long-running asyncio task that drains the queue, calls Ollama, and writes results.
-- **`data/`** — `analysis_repository.py`, the persistence layer over SQLAlchemy models/queries.
-- **`infrastructure/`** — cross-cutting adapters: `config.py` (env-driven `Settings` singleton via `get_settings()`), `database/` (SQLAlchemy engine/session, `bootstrap.py` which creates tables and seeds the cloud catalog on startup, Alembic `migrations/`, raw `create_tables.sql` / `seed_clouds.sql`), `firebase_service.py` (Firebase Admin token verification), `ollama_client.py` (HTTP client to the Ollama `/api/generate` endpoint), `queue.py` (the async job queue), `logging_config.py`, and `prompts/` (Jinja2 templates `classifier_simple.j2`, `explainer.j2` used to build the Ollama prompts).
-- **`main.py`** — FastAPI app factory. Lifespan hook bootstraps the DB and starts/stops the worker task (`DISABLE_WORKER` to opt out). Mounts `/uploads` as static files, applies CORS from `CORS_ALLOW_ORIGINS`, and exposes `GET /ping` and `GET /` health/info endpoints.
+Layered: `presentation/` (routes, `test_routes.py` only when `TEST_MODE=true`, Firebase bearer-token auth dependency) → `business/` (`analysis_service.py`, `auth_service.py`, `worker.py`'s `analysis_worker` loop) → `data/` (`analysis_repository.py` over SQLAlchemy) → `infrastructure/` (`config.py`'s `Settings`/`get_settings()`, DB engine/session/bootstrap/Alembic migrations, `firebase_service.py`, `ollama_client.py`, `queue.py`, `prompts/*.j2`). `main.py` is the FastAPI app factory (lifespan bootstraps DB + worker, `DISABLE_WORKER` to opt out; mounts `/uploads`, CORS from `CORS_ALLOW_ORIGINS`, `GET /ping`/`GET /`).
 
-Tests live in `sut/backend/tests/` (pytest, one file per module — repository, routes, services, worker, auth, firebase, ollama client, database bootstrap/session). Dependencies and config are managed with [Poetry](https://python-poetry.org/) (`pyproject.toml` + `poetry.lock`); run with `poetry run pytest` from `sut/backend/`; config lives under `[tool.pytest.ini_options]` in `pyproject.toml`; coverage written to `coverage.xml` (consumed by SonarCloud).
+Tests in `sut/backend/tests/` (pytest, one file per module). Managed with [Poetry](https://python-poetry.org/) (`pyproject.toml` + `poetry.lock`); run `poetry run pytest` from `sut/backend/`; config under `[tool.pytest.ini_options]`; coverage → `coverage.xml` (SonarCloud).
 
-### Frontend architecture (`sut/frontend/`)
+### Frontend (`sut/frontend/`)
 
-Expo Router app with a views/controllers/services split:
-- **`app/`** — Expo Router route files (`index.tsx`, `login.tsx`, `register.tsx`, `home.tsx`, `capture.tsx`, `profile.tsx`, `_layout.tsx`). Excluded from coverage (thin routing wrappers).
-- **`src/views/`** — presentational screens/components rendering UI and emitting events. Excluded from coverage.
-- **`src/controllers/`** — coordinate state and navigation between views and services. Excluded from coverage.
-- **`src/services/`** — encapsulate Firebase auth, the backend API client, notifications, and local preference storage. Most are unit-tested (see `__tests__/`); `AuthService.ts`, `LoggerService.ts`, `NotificationService.ts`, and `mockData.ts` are excluded from coverage as thin native/Firebase adapters.
-- **`src/hooks/`**, **`hooks/`** — shared React hooks (e.g. `useAnalysisHistory`, `useNotificationResponse`, theming hooks). `hooks/` (top-level) has `.web.ts` platform variants for web-specific behavior.
-- **`src/models/`**, **`src/config/`**, **`src/styles/`** — types, configuration constants, and styling. Excluded from coverage (static/config data).
-- **`src/i18n.ts`** — i18next setup; locale files under `src/locales/**` (or similar) are excluded from coverage as static data.
-- **`components/`** — small reusable/themed UI primitives (`themed-text.tsx`, `themed-view.tsx`, `ui/`).
-- **`android/`** — native Android project (Gradle) generated/maintained for building release APKs; has its own `.gitignore`.
-- Tests in `__tests__/` (Jest + `jest-expo`), config in `jest.config.js` / `jest.setup.js`. Run with `npm test`; coverage via `npm run test:coverage` writes `coverage/lcov.info` (consumed by SonarCloud). Lint via `npm run lint` (`expo lint` / ESLint, config in `eslint.config.js`).
+Expo Router, views/controllers/services split: `app/` (route files, thin, excluded from coverage), `src/views/` + `src/controllers/` (excluded from coverage), `src/services/` (Firebase/API/notifications/storage — most unit-tested; `AuthService.ts`/`LoggerService.ts`/`NotificationService.ts`/`mockData.ts` excluded as thin adapters), `src/hooks/`+`hooks/` (shared hooks, `.web.ts` variants), `src/models/`/`src/config/`/`src/styles/` (excluded, static), `components/` (themed UI primitives), `android/` (native Gradle project for release APKs).
+
+Tests in `__tests__/` (Jest + `jest-expo`). `npm test` / `npm run test:coverage` (→ `coverage/lcov.info`) / `npm run lint` (`expo lint`).
 
 ## Local Deployment
 
-Full, authoritative instructions (including all environment variables and Firebase setup) are in [`sut/README.md`](sut/README.md#local-deployment). Summary:
+Authoritative instructions: [`sut/README.md`](sut/README.md#local-deployment). Summary:
 
-**Backend** needs `sut/backend/.env` (`POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `OLLAMA_MODEL` for Docker Compose; or `DATABASE_URL`, `FIREBASE_KEY_PATH`, `OLLAMA_URL`, `OLLAMA_MODEL`, `CORS_ALLOW_ORIGINS`, `LOG_LEVEL`, `TEST_MODE`, `DISABLE_WORKER` for a manual run) plus a Firebase Admin credentials file at `sut/backend/secrets/firebase_key.json` (never commit this).
+- **Backend**: `sut/backend/.env` (`POSTGRES_*`, `OLLAMA_MODEL` for Compose; or `DATABASE_URL`, `FIREBASE_KEY_PATH`, `OLLAMA_URL`, `OLLAMA_MODEL`, `CORS_ALLOW_ORIGINS`, `LOG_LEVEL`, `TEST_MODE`, `DISABLE_WORKER` for manual) + `sut/backend/secrets/firebase_key.json` (never commit).
+- **Frontend**: `sut/frontend/.env` (`EXPO_PUBLIC_BACKEND_URL`, `EXPO_PUBLIC_TEST_MODE`, `EXPO_PUBLIC_DEFAULT_LANGUAGE`, `EXPO_PUBLIC_FIREBASE_*`) + `sut/frontend/google-services.json` (never commit).
 
-**Frontend** needs `sut/frontend/.env` (`EXPO_PUBLIC_BACKEND_URL`, `EXPO_PUBLIC_TEST_MODE`, `EXPO_PUBLIC_DEFAULT_LANGUAGE`, and the `EXPO_PUBLIC_FIREBASE_*` client keys) plus `sut/frontend/google-services.json` for Android (never commit this either).
-
-### Root-level convenience scripts
-
-This wrapper repo adds a thin deployment script at the root (both Bash and PowerShell — pick whichever matches your shell) that just calls the documented Docker Compose / npm commands in `sut/backend` and `sut/frontend`; it doesn't replace or reinterpret the SUT's own setup:
+Root convenience scripts (`deploy.sh` / `deploy.ps1`) just wrap the documented Docker Compose / npm commands:
 
 ```bash
-# Bash (Linux/macOS/WSL/Git Bash)
-./deploy.sh backend        # docker compose up --build in sut/backend (Postgres + Ollama + FastAPI)
-./deploy.sh frontend       # npm install && npm start in sut/frontend (Expo dev server)
-./deploy.sh all            # backend detached, then frontend in the foreground
-./deploy.sh down           # docker compose down for the backend
-./deploy.sh down --volumes # also wipes Postgres data + Ollama models
+./deploy.sh backend        # docker compose up --build (Postgres + Ollama + FastAPI)
+./deploy.sh frontend       # npm install && npm start (Expo dev server)
+./deploy.sh all            # backend detached, then frontend foreground
+./deploy.sh down [--volumes]
 ```
+PowerShell: same subcommands via `./deploy.ps1`, `-Volumes` flag.
 
-```powershell
-# PowerShell (Windows)
-./deploy.ps1 backend
-./deploy.ps1 frontend
-./deploy.ps1 all
-./deploy.ps1 down
-./deploy.ps1 down -Volumes   # also wipes Postgres data + Ollama models
-```
-
-The script fails fast with a clear message if `sut/backend/.env` is missing, and warns (non-fatal) if `sut/backend/secrets/firebase_key.json` or `sut/frontend/.env` are missing, since the app will still start but auth/config will not work correctly.
+Fails fast if `sut/backend/.env` is missing; warns (non-fatal) if the Firebase key or frontend `.env` are missing.
 
 ## Tests And Quality
 
 ```bash
-# Backend
-cd sut/backend
-poetry install --with test
-poetry run pytest
-
-# Frontend
-cd sut/frontend
-npm test
-npm run test:coverage
-npm run lint
+cd sut/backend && poetry install --with test && poetry run pytest
+cd sut/frontend && npm test && npm run test:coverage && npm run lint
 ```
 
-SonarCloud analysis (`sut/sonar-project.properties`) reads `sut/backend/coverage.xml` and `sut/frontend/coverage/lcov.info`; see `sut/README.md` for the full list of paths excluded from coverage and why.
+SonarCloud reads `sut/backend/coverage.xml` + `sut/frontend/coverage/lcov.info` (see `sut/sonar-project.properties`); coverage exclusions documented in `sut/README.md`.
 
 ## CI/CD
 
-This wrapper repo defines its own workflow at [`.github/workflows/ci-cd.yml`](.github/workflows/ci-cd.yml), adapted from ClimaNuvem's upstream pipeline but pointed at `sut/backend` and `sut/frontend`. Triggers: `pull_request`, `push` (any branch), and `workflow_dispatch` (with a `build_android` boolean input to force an APK build). Stages:
+[`.github/workflows/ci-cd.yml`](.github/workflows/ci-cd.yml), adapted from upstream but pointed at `sut/backend`/`sut/frontend`. Triggers: `pull_request`, `push` (any branch), `workflow_dispatch` (`build_android` input). Jobs:
 
-1. **`changes`** — `dorny/paths-filter` diffs `sut/backend/**` and `sut/frontend/**` to decide which downstream jobs run; a manual `workflow_dispatch` run always treats both as changed.
-2. **`backend-tests`** (needs `changes`, runs iff backend changed) — Python 3.12, installs Poetry (`snok/install-poetry`, in-project `.venv`), `poetry install --with test` (`sut/backend/pyproject.toml` + `poetry.lock`), runs `poetry run pytest`, archives `sut/backend/logs/*` as a build artifact.
-3. **`frontend-tests`** (needs `changes`, runs iff frontend changed) — Node 22, restores `google-services.json` from the `GOOGLE_SERVICES_JSON_BASE64` secret when present (lint/test proceed without it otherwise), `npm ci`, `npm run lint`, `npm test`.
-4. **`sonarcloud`** (needs `changes`, runs iff either side changed or on manual dispatch) — regenerates backend (`poetry run pytest`, writing `coverage.xml`) and frontend (`npm run test:coverage`, writing `coverage/lcov.info`) coverage, then runs `SonarSource/sonarqube-scan-action` with `projectBaseDir: sut` so it picks up [`sut/sonar-project.properties`](sut/sonar-project.properties) (whose paths are relative to `sut/`). Requires the `SONAR_TOKEN` secret.
-5. **`deploy-docs`** — only on `push` to `main` or a tag. Installs the backend's `docs` Poetry group (`poetry install --with docs`, so autodoc can import `app` and its runtime dependencies), then builds the Sphinx docs directly via the in-project venv (`backend/.venv/bin/sphinx-build -b html docs docs/_build/html`, run with `working-directory: sut` so `sut/docs/conf.py`'s `../backend` import path resolves) and publishes `sut/docs/_build/html` to GitHub Pages via `actions/upload-pages-artifact` + `actions/deploy-pages` (needs the `github-pages` environment enabled in repo settings).
-6. **`android-release-apk`** (needs `changes` + `frontend-tests`) — runs when `frontend/` changed on a `main` push, or when manually dispatched with `build_android=true`. Validates all required secrets are present first, restores the release keystore and `google-services.json` from base64 secrets, writes `MYAPP_UPLOAD_*` Gradle properties (matching the signing config already wired into [`sut/frontend/android/app/build.gradle`](sut/frontend/android/app/build.gradle)), runs `./gradlew assembleRelease`, and publishes the signed APK as both a workflow artifact and a GitHub Release tagged `frontend-v1.0.0-<run_number>`.
-7. **`e2e-selenium-java`**, **`e2e-playwright-csharp`**, **`e2e-cypress-javascript`**, **`e2e-puppeteer-python`** — **placeholders**, one per E2E benchmark tool/language combination. Each currently only checks out the repo and echoes a `TODO`; none stand up the SUT or run a real suite yet. They run unconditionally (no `needs`/`if` gating) so the stage names are visible in the Actions UI as the benchmark grows. When implementing one, give it the toolchain setup it actually needs (e.g. `actions/setup-java` + Maven/Gradle for Selenium, `actions/setup-dotnet` for Playwright, `actions/setup-node` for Cypress, `actions/setup-python` for Puppeteer), a way to stand up the SUT (likely reusing `./deploy.sh backend`/`./deploy.sh frontend` or a dedicated CI-only compose profile), and remove the placeholder `Placeholder` step.
+1. **`changes`** — `dorny/paths-filter` on `sut/backend/**`/`sut/frontend/**`; `workflow_dispatch` treats both as changed.
+2. **`backend-tests`** — Python 3.12, Poetry (`snok/install-poetry`, in-project `.venv`), `poetry install --with test`, `poetry run pytest`, archives `sut/backend/logs/*`.
+3. **`frontend-tests`** — Node 22, restores `google-services.json` from `GOOGLE_SERVICES_JSON_BASE64` if present, `npm ci`, `npm run lint`, `npm test`.
+4. **`sonarcloud`** — regenerates both coverage reports, runs `SonarSource/sonarqube-scan-action` with `projectBaseDir: sut`. Needs `SONAR_TOKEN`. Skips when `github.actor == 'dependabot[bot]'` (see Dependabot section).
+5. **`deploy-docs`** — only on push to `main`/tag. `poetry install --with docs`, builds Sphinx via the in-project venv (`working-directory: sut`), publishes to GitHub Pages (needs `github-pages` environment).
+6. **`android-release-apk`** — on `frontend/` change to `main`, or manual dispatch with `build_android=true`. Restores keystore + `google-services.json` from secrets, writes `MYAPP_UPLOAD_*` Gradle props, `./gradlew assembleRelease`, publishes APK as artifact + GitHub Release (`frontend-v1.0.0-<run_number>`).
+7. **`e2e-*`** (selenium-java, playwright-csharp, cypress-javascript, puppeteer-python) — **placeholders** only (checkout + TODO echo), run unconditionally so stage names are visible. Implementing one needs its toolchain setup, a way to stand up the SUT (reuse `./deploy.sh`), and removing the placeholder step.
 
-Required repository secrets: `SONAR_TOKEN`; `GOOGLE_SERVICES_JSON_BASE64` (optional for steps 3–4, required for step 6); `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`; and the `EXPO_PUBLIC_*` Firebase/backend-URL values, all only needed for step 6. See [`sut/README.md`](sut/README.md#cicd) for what each one is for — the secret *names* and *purposes* are unchanged from upstream, only the file paths inside the jobs differ.
+Secrets: `SONAR_TOKEN`; `GOOGLE_SERVICES_JSON_BASE64` (optional for 3–4, required for 6); `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`; `EXPO_PUBLIC_*` (all only for step 6). Same names/purposes as upstream — see [`sut/README.md`](sut/README.md#cicd).
 
 ## Dependabot
 
-[`.github/dependabot.yml`](.github/dependabot.yml) covers every ecosystem in the repo: `pip` (`/sut/backend`), `npm` (`/sut/frontend`), `docker` (`/sut/backend` and `/sut/frontend`, one entry each for their `Dockerfile`), and `github-actions` (`/`, since workflow files always live at the repo root regardless of where the code they build lives). All run on a weekly schedule.
+[`.github/dependabot.yml`](.github/dependabot.yml): `pip` (`/sut/backend`), `npm` (`/sut/frontend`), `docker` (one entry each for backend/frontend `Dockerfile`), `github-actions` (`/`). Weekly.
 
-`groups` is used **only where packages are genuine version-lockstep siblings** — bumping one without the other breaks the build/runtime until both catch up. It's deliberately *not* used to bucket packages that merely share a theme or ecosystem (e.g. "testing tools", "docs tools") when there's no real compatibility constraint between them; those get one PR per package instead:
+`groups` is used **only for genuine version-lockstep siblings** (bumping one alone breaks the build) — not to bucket by theme. One PR per package otherwise:
 
-- **`pip` (`sut/backend`)**: `fastapi-pydantic` (fastapi + starlette + the pydantic v2 family — mostly transitive now that `pyproject.toml` only lists `fastapi` directly and lets Poetry pin `pydantic`/`pydantic_core` in `poetry.lock`, but the group stays in case Dependabot ever proposes them directly), `firebase-google-cloud` (firebase_admin + the whole `google-*`/`grpcio`/`protobuf` tree it depends on), `sqlalchemy` (sqlalchemy + alembic), `http-stack` (httpx + httpcore + h2/hpack/hyperframe + anyio). `pytest`/`pytest-asyncio`/`pytest-cov`/`pytest-mock` (the Poetry `test` group) and `sphinx`/`sphinx-rtd-theme` (the Poetry `docs` group) are **not** grouped in Dependabot — they're dev-tooling that happens to share a theme, not packages that hard-break when bumped independently, and Sphinx docs generation isn't a benchmark priority worth a dedicated group anyway. They each update in their own PR.
+- **`pip`**: `fastapi-pydantic`, `firebase-google-cloud`, `sqlalchemy` (+alembic), `http-stack` (httpx/httpcore/h2/hpack/hyperframe/anyio). `pytest*` (Poetry `test` group) and `sphinx*` (`docs` group) ungrouped, own PRs each.
+- **`npm`**: `expo-sdk` (expo, `expo-*`, `@expo/*`, react, react-dom, react-native, `react-native-*`, `@types/react`, jest, jest-expo — `expo install` bumps these as one unit), `react-navigation` (`@react-navigation/*`), `testing` (`@types/jest`), `linting` (eslint, `eslint-*`, `@typescript-eslint/*`, typescript).
+- **`github-actions`**: ungrouped, no cross-action version constraints.
+- **`docker`**: ungrouped, one `FROM` each.
 
-There used to be a `pip` (`sut/backend`) `ignore` rule capping `sphinx` below `8.2.0` (Sphinx 8.2.x/9.x require Python ≥3.11/≥3.12, which broke `pip install` back when `backend-tests` ran on Python 3.10 — see PR #68). It was removed once this branch bumped `backend-tests`/`sonarcloud` to Python 3.12 (see CI/CD above), which satisfies even Sphinx 9.x. Re-add an equivalent ignore if the pinned Python version ever drops back below what the desired Sphinx version requires.
-- **`npm` (`sut/frontend`)**: `expo-sdk` — the big one — groups `expo`, every `expo-*`/`@expo/*` package, `react`, `react-dom`, `react-native`, and every `react-native-*` package (reanimated, gesture-handler, safe-area-context, screens, worklets, web) plus `@types/react`, because the Expo SDK pins a single compatible version set across all of these and `expo install` always bumps them together — letting Dependabot open them as separate PRs would leave the tree in a broken, half-upgraded state between merges. Also `react-navigation` (`@react-navigation/*`, released as a suite — a real peer-dependency lockstep), `testing` (`jest`/`jest-expo`/`@types/jest` — `jest-expo` pins the jest version it supports), and `linting` (`eslint`/`eslint-config-expo` — `eslint-config-expo` pins the eslint range it supports).
+**Ignore rules and why:**
+- `pip`: none currently. (A `sphinx <8.2.0` cap existed while `backend-tests` ran Python 3.10 — Sphinx 8.2+/9.x need ≥3.11/≥3.12; removed once CI moved to Python 3.12.)
+- `npm` `eslint`: `semver-major` ignored — `eslint-config-expo` still bundles plugins that break under ESLint 10's flat-config API.
+- `npm` `react`/`react-dom`/`react-native`/`react-native-*`/`@types/react`/`jest`/`jest-expo`: `semver-major`+`semver-minor` ignored. `npm` `expo`/`expo-*`/`@expo/*`: `semver-major` ignored. **Why**: grouping only guarantees these land in one PR, not that the combo matches what Expo's `bundledNativeModules.json` supports for the pinned `expo` version — this broke CI twice via ordinary minor bumps (jest-expo on the wrong SDK track; react-native 0.87.1 vs SDK 57's pinned 0.86.3). Patches still auto-update; bump the full set by hand with `npx expo install --fix` when moving SDKs.
 
-The `npm` (`sut/frontend`) block also `ignore`s `semver-major` bumps of `eslint`: `eslint-config-expo` (57.x/58.x) bundles `eslint-plugin-react`/`eslint-plugin-import` versions that throw at runtime under ESLint 10's flat-config rule context (`TypeError: contextOrFilename.getFilename is not a function`). The `linting` group above only guarantees `eslint` and `eslint-config-expo` bump together in the same PR — it can't guarantee the plugins bundled *inside* `eslint-config-expo` actually support the new `eslint` yet, since that's a fact about eslint-config-expo's own release cadence that Dependabot can't see from version ranges alone. Revisit/remove once `eslint-config-expo` ships a release built against ESLint 10.
+Note: `pydantic`/`pydantic_core` also once landed out of sync despite matching the `fastapi-pydantic` group — that came from the separate tool that combines multiple Dependabot PRs into one branch, not from dependabot.yml, and isn't fixable here.
 
-Two other failures on the same "Combined dependency updates" branch were **not** dependabot.yml misconfigurations and couldn't be fixed there: `pydantic`/`pydantic_core` landed out of sync (pip resolver conflict) despite both already matching the `fastapi-pydantic` group's `pydantic*` pattern, and the whole `expo-sdk` train drifted out of lockstep (`react-native` at 0.87.1 against `expo`'s pinned SDK 57, which expects 0.86.3, plus `jest`/`jest-expo` on the wrong generation) despite every one of those packages already being grouped. Dependabot itself would have bumped each group as one consistent unit; the drift was introduced by the separate process that combines many individual Dependabot PRs into one branch — worth auditing that tooling (e.g. re-running `pip install --dry-run` and `npx expo install --check` before finalizing a combined branch) rather than dependabot.yml.
-- **`github-actions` (`/`)**: intentionally **not grouped**. No action in `ci-cd.yml` has a version constraint on another (`actions/checkout` bumping doesn't require `actions/setup-node` to bump too), so there's no sibling risk — each action (`actions/*` and the SHA-pinned third-party ones) updates and gets reviewed in its own PR.
-- **`docker`**: no groups — each Dockerfile has a single `FROM` base image, so there are no siblings to bundle.
+When bumping by hand, respect the same lockstep sets (e.g. don't bump one `expo-*` package alone; don't bump `fastapi` without checking `starlette`).
 
-When touching dependency versions by hand (not via Dependabot), keep the same "move together" sets in mind — e.g. don't bump a single `expo-*` package without checking it against the Expo SDK version, and don't bump `fastapi` without checking its `starlette` pin.
+**Commit messages / labels**: no block sets `include: "scope"` (it would append a redundant `(deps)`/`(deps-dev)` suffix on top of the already-descriptive `prefix`). `npm` and `pip` both set `prefix-development` (`chore(frontend dev-deps)` / `chore(backend dev-deps)`) since both manifests expose a real dev/prod split Dependabot can see (`package.json` deps/devDeps; Poetry's `[project.dependencies]` vs. optional `test`/`docs` groups — only possible for `pip` since the Poetry migration). Every block sets `assignees: [augustocristian]` and labels (must pre-exist in the repo: `backend`, `backend-ai`, `frontend`, `docker`, `actions` — Dependabot won't create them):
 
-Every update block also sets `assignees: [augustocristian]` and per-ecosystem `labels`, applied to every PR that block opens (Dependabot doesn't support per-group labels, only per-block, which is why the `backend-ai` label below lands on *all* `sut/backend` pip PRs rather than a narrower subset — there's no pip dependency that's cleanly "AI-only" in this stack anyway, since the classification model is called over plain HTTP to Ollama rather than through a pip-installed client):
-
-| Update block | Labels |
+| Block | Labels |
 | --- | --- |
-| `pip` (`/sut/backend`) | `backend`, `backend-ai` |
-| `npm` (`/sut/frontend`) | `frontend` |
-| `docker` (`/sut/backend`) | `backend`, `docker` |
-| `docker` (`/sut/frontend`) | `frontend`, `docker` |
-| `github-actions` (`/`) | `actions` |
+| `pip` | `backend`, `backend-ai` |
+| `npm` | `frontend` |
+| `docker` (backend) | `backend`, `docker` |
+| `docker` (frontend) | `frontend`, `docker` |
+| `github-actions` | `actions` |
 
-**Labels must already exist in the GitHub repo** — Dependabot does not create missing labels, it silently skips applying ones that aren't there. Before this config takes effect, create `backend`, `backend-ai`, `frontend`, `docker`, and `actions` as repository labels (Settings → Labels, or `gh label create`). Note that Dependabot's `groups` option has no per-group `labels` field — labels are only settable at the whole-update-block level, which is why e.g. every `sut/backend` pip PR gets `backend-ai` regardless of which group (fastapi-pydantic, sqlalchemy, ...) it came from.
+`rebase-strategy: "disabled"` everywhere — stops auto-rebase from re-triggering CI (incl. `sonarcloud`) on every `main` push while a PR waits for review. `ci-cd.yml`'s `sonarcloud` job also guards `if: github.actor != 'dependabot[bot]'`, so individual Dependabot PRs skip it entirely — but that guard is keyed on the triggering actor, so a manually-combined "Combined dependency updates" branch (pushed by a human) still runs it.
 
-No `commit-message` block sets `include: "scope"`. Dependabot always states what's actually changing in the subject regardless of that setting (e.g. `chore(backend deps): bump the fastapi-pydantic group with 2 updates`) — what `include: "scope"` additionally does is append its own `(deps)`/`(deps-dev)` suffix to the prefix. Since every prefix here already spells out the scope by hand (`chore(backend deps)`, `chore(frontend dev-deps)`, `chore(ci)`, ...), turning it on produces doubled-up, redundant titles like `chore(backend deps)(deps): bump uvicorn from 0.52.4 to 0.53.0 in /sut/backend` — that's why it's left off everywhere (mirroring the sibling `giise2ebench-st-devorapp` repo's `dependabot.yml`, which never sets it either). Both the `npm` (`sut/frontend`) and `pip` (`sut/backend`) blocks set `prefix-development` directly instead (`chore(frontend dev-deps)` / `chore(backend dev-deps)`), since both manifests now expose a real dependencies-vs-dev-tooling split Dependabot can see: `package.json`'s `dependencies`/`devDependencies` for npm, and `sut/backend/pyproject.toml`'s `[project.dependencies]` vs. the optional `[tool.poetry.group.test]`/`[tool.poetry.group.docs]` groups for pip/Poetry — `pytest*`/`sphinx*` land in dev-deps commits, everything in `[project.dependencies]` (fastapi, sqlalchemy, firebase-admin, ...) in the main prefix. This `prefix-development` split only became possible for `pip` once the backend switched to Poetry: a plain `requirements.txt` + `requirements-dev.txt` pair, as the backend used before, gives Dependabot no dependency-group metadata to detect a dev/prod split from, so setting `prefix-development` there would have silently done nothing.
-
-Every update block also sets `rebase-strategy: "disabled"`. By default Dependabot auto-rebases every open PR each time `main` gets a new commit, and each rebase pushes a new commit to the PR branch — re-triggering the full `pull_request` CI pipeline in [`ci-cd.yml`](.github/workflows/ci-cd.yml), including the `sonarcloud` job, over and over while the PR just sits there waiting for review. `rebase-strategy: "disabled"` stops that churn. This is one reason (besides `SONAR_TOKEN` not being available to fork PRs) `ci-cd.yml`'s `sonarcloud` job also carries `if: github.actor != 'dependabot[bot]' && (...)` — individual Dependabot-authored PRs never run it, not even once. That guard is keyed on `github.actor`, i.e. who triggered the run, not the PR's file changes — so it does **not** apply to a manually-combined "Combined dependency updates" branch pushed by a human/bot account that isn't literally `dependabot[bot]`; those still run `sonarcloud` like any other PR, and still need `sut/sonar-project.properties`'s `sonar.projectKey`/`sonar.organization` to point at a SonarCloud project this repo's `SONAR_TOKEN` can actually access (see below).
-
-**Known gap**: `sut/sonar-project.properties` is vendored as-is from upstream and still reads `sonar.projectKey=uo289165_epi-climanuvem` / `sonar.organization=uo289165-1` — the *original* `uo289165/epi-climanuvem` repo's SonarCloud project, not this fork's. Every `sonarcloud` job run against this repo's `SONAR_TOKEN` fails with "Not authorized or project not found" until those two values are repointed at a SonarCloud project actually owned by this repo/org. This has nothing to do with `dependabot.yml` or dependency versions — it's a standing infrastructure gap that predates and is independent of any given dependency bump.
+**Known gap**: `sut/sonar-project.properties` still has the *upstream* project's `sonar.projectKey`/`sonar.organization` (`uo289165_epi-climanuvem` / `uo289165-1`), so every `sonarcloud` run fails "Not authorized or project not found" until repointed at a project this repo's `SONAR_TOKEN` can access. Pre-existing, unrelated to dependency versions.
 
 ## Conventions For This Repo
 
-- **`.gitignore`**: the root `.gitignore` targets IDE/OS rubbish (JetBrains `.idea/`/`.iml`, Eclipse `.project`/`.classpath`/`.settings/`, VS Code `.vscode/*` with the useful shared files re-allowed, plus OS cruft) so no editor metadata gets committed regardless of which IDE a contributor uses. `sut/backend/.gitignore` and `sut/frontend/.gitignore` remain the source of truth for stack-specific ignores (Python venvs, `node_modules/`, Expo/Android build artifacts, secrets, `.env` files) — don't duplicate those at the root, only cover what they don't.
-- **Secrets**: never commit `.env` files, `firebase_key.json`, `google-services.json`, Android keystores, or any other credential. These are already covered by `.gitignore` at the appropriate level.
-- **Don't restructure `sut/`** casually — it tracks an upstream project. If you need to patch it, keep the diff minimal and aligned with its existing layered architecture (presentation/business/data/infrastructure on the backend; views/controllers/services on the frontend).
-- **Formal requirements** in `docs/*.txt` describe expected user-facing behavior (auth, registration, upload, analysis, forecasting, warnings, cancellation, history, explainability) and are the reference for what the benchmark's E2E scenarios should cover.
-- **CI/Dependabot paths**: both [`.github/workflows/ci-cd.yml`](.github/workflows/ci-cd.yml) and [`.github/dependabot.yml`](.github/dependabot.yml) hardcode the `sut/backend` / `sut/frontend` prefixes. If `sut/` is ever restructured (it shouldn't be casually, per above) or the SUT is re-vendored from a newer upstream snapshot, re-check both files against the actual paths and dependency manifests rather than assuming they still match.
+- **`.gitignore`**: root covers IDE/OS cruft only; `sut/backend/.gitignore` / `sut/frontend/.gitignore` remain source of truth for stack-specific ignores — don't duplicate.
+- **Secrets**: never commit `.env`, `firebase_key.json`, `google-services.json`, keystores (already gitignored).
+- **Don't restructure `sut/`** casually — vendored from upstream.
+- **Formal requirements** in `docs/*.txt` are the reference for benchmark E2E scenario coverage.
+- **CI/Dependabot paths** hardcode `sut/backend`/`sut/frontend` — re-check both files if `sut/` is ever restructured or re-vendored.
