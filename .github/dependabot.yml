@@ -128,15 +128,38 @@ updates:
           - "@typescript-eslint/*"
           - "typescript"
     ignore:
-      # eslint-config-expo (as of 57.x/58.x) still bundles an eslint-plugin-react/
-      # eslint-plugin-import pinned below what ESLint 10's flat-config rule context
-      # requires, so an eslint major bump breaks `npm run lint` at runtime with
-      # `TypeError: contextOrFilename.getFilename is not a function` even though the
-      # `linting` group above keeps eslint and eslint-config-expo moving together —
-      # grouping only guarantees they bump in the same PR, not that the bundled
-      # plugins inside eslint-config-expo actually support the new eslint yet.
-      # Revisit/remove once eslint-config-expo ships a release built against ESLint 10.
+      # eslint-config-expo (57.x/58.x) bundles an eslint-plugin-react/-import that
+      # breaks at runtime under ESLint 10's flat-config API. Revisit once
+      # eslint-config-expo ships a release built against ESLint 10.
       - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
+      # These SDK-managed packages must match whatever version Expo's own
+      # bundledNativeModules.json pins for the installed `expo` — Dependabot can't
+      # read that table, and has twice picked an incompatible combo here (jest-expo
+      # on the wrong SDK track; react-native 0.87.1 vs SDK 57's pinned 0.86.3), both
+      # via ordinary minor releases. Only patches auto-update; bump the set by hand
+      # with `npx expo install --fix` when moving to a new SDK.
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "react-native"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "react-native-*"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "@types/react"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "jest"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "jest-expo"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      # expo/expo-*/@expo/* version by SDK number, so a major bump means "move SDK" —
+      # same reasoning, must move with the group above by hand.
+      - dependency-name: "expo"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "expo-*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@expo/*"
         update-types: ["version-update:semver-major"]
 
   # --- Dockerfiles ---
