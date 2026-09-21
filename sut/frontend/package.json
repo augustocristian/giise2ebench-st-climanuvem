@@ -43,7 +43,7 @@
     "expo-system-ui": "~57.0.4",
     "expo-video": "~57.0.4",
     "expo-web-browser": "~57.0.3",
-    "firebase": "^12.18.0",
+    "firebase": "^12.19.0",
     "i18next": "^26.4.2",
     "react": "19.3.0",
     "react-dom": "19.3.0",
