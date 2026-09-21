@@ -22,7 +22,6 @@ updates:
     open-pull-requests-limit: 10
     commit-message:
       prefix: "chore(backend deps)"
-      include: "scope"
     assignees:
       - "augustocristian"
     labels:
@@ -67,6 +66,14 @@ updates:
           - "hpack"
           - "hyperframe"
           - "anyio"
+    ignore:
+      # sphinx 8.2.x requires Python >=3.11 and 9.x requires >=3.12, but ci-cd.yml's
+      # backend-tests and sonarcloud jobs install sut/backend/requirements-dev.txt under
+      # Python 3.10 — a bump past 8.1.x installs fine locally on a newer interpreter but
+      # fails `pip install` in CI with "No matching distribution found for sphinx==...".
+      # Revisit/remove this ignore if backend-tests' Python version is ever bumped past 3.10.
+      - dependency-name: "sphinx"
+        versions: [">=8.2.0"]
 
   # --- Frontend: Expo / React Native app (sut/frontend) ---
   - package-ecosystem: "npm"
@@ -78,7 +85,6 @@ updates:
     commit-message:
       prefix: "chore(frontend deps)"
       prefix-development: "chore(frontend dev-deps)"
-      include: "scope"
     assignees:
       - "augustocristian"
     labels:
@@ -128,6 +134,17 @@ updates:
           - "eslint-*"
           - "@typescript-eslint/*"
           - "typescript"
+    ignore:
+      # eslint-config-expo (as of 57.x/58.x) still bundles an eslint-plugin-react/
+      # eslint-plugin-import pinned below what ESLint 10's flat-config rule context
+      # requires, so an eslint major bump breaks `npm run lint` at runtime with
+      # `TypeError: contextOrFilename.getFilename is not a function` even though the
+      # `linting` group above keeps eslint and eslint-config-expo moving together —
+      # grouping only guarantees they bump in the same PR, not that the bundled
+      # plugins inside eslint-config-expo actually support the new eslint yet.
+      # Revisit/remove once eslint-config-expo ships a release built against ESLint 10.
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
 
   # --- Dockerfiles ---
   - package-ecosystem: "docker"
@@ -137,7 +154,6 @@ updates:
     rebase-strategy: "disabled"
     commit-message:
       prefix: "chore(backend docker)"
-      include: "scope"
     assignees:
       - "augustocristian"
     labels:
@@ -151,7 +167,6 @@ updates:
     rebase-strategy: "disabled"
     commit-message:
       prefix: "chore(frontend docker)"
-      include: "scope"
     assignees:
       - "augustocristian"
     labels:
@@ -171,7 +186,6 @@ updates:
     rebase-strategy: "disabled"
     commit-message:
       prefix: "chore(ci)"
-      include: "scope"
     assignees:
       - "augustocristian"
     labels:
