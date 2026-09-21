@@ -127,9 +127,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: changes
     if: |
-      github.event_name == 'workflow_dispatch' ||
+      github.actor != 'dependabot[bot]' &&
+      (github.event_name == 'workflow_dispatch' ||
       needs.changes.outputs.backend == 'true' ||
-      needs.changes.outputs.frontend == 'true'
+      needs.changes.outputs.frontend == 'true')
     permissions:
       contents: read
     steps:

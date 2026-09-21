@@ -23,7 +23,6 @@ updates:
     commit-message:
       prefix: "chore(backend deps)"
       prefix-development: "chore(backend dev-deps)"
-      include: "scope"
     assignees:
       - "augustocristian"
     labels:
@@ -79,7 +78,6 @@ updates:
     commit-message:
       prefix: "chore(frontend deps)"
       prefix-development: "chore(frontend dev-deps)"
-      include: "scope"
     assignees:
       - "augustocristian"
     labels:
@@ -129,6 +127,17 @@ updates:
           - "eslint-*"
           - "@typescript-eslint/*"
           - "typescript"
+    ignore:
+      # eslint-config-expo (as of 57.x/58.x) still bundles an eslint-plugin-react/
+      # eslint-plugin-import pinned below what ESLint 10's flat-config rule context
+      # requires, so an eslint major bump breaks `npm run lint` at runtime with
+      # `TypeError: contextOrFilename.getFilename is not a function` even though the
+      # `linting` group above keeps eslint and eslint-config-expo moving together —
+      # grouping only guarantees they bump in the same PR, not that the bundled
+      # plugins inside eslint-config-expo actually support the new eslint yet.
+      # Revisit/remove once eslint-config-expo ships a release built against ESLint 10.
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
 
   # --- Dockerfiles ---
   - package-ecosystem: "docker"
@@ -138,7 +147,6 @@ updates:
     rebase-strategy: "disabled"
     commit-message:
       prefix: "chore(backend docker)"
-      include: "scope"
     assignees:
       - "augustocristian"
     labels:
@@ -152,7 +160,6 @@ updates:
     rebase-strategy: "disabled"
     commit-message:
       prefix: "chore(frontend docker)"
-      include: "scope"
     assignees:
       - "augustocristian"
     labels:
@@ -172,7 +179,6 @@ updates:
     rebase-strategy: "disabled"
     commit-message:
       prefix: "chore(ci)"
-      include: "scope"
     assignees:
       - "augustocristian"
     labels:
