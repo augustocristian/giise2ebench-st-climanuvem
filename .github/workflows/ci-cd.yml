@@ -133,6 +133,11 @@ jobs:
       needs.changes.outputs.frontend == 'true')
     permissions:
       contents: read
+    # Exposed at job level so steps can test whether the secret is configured.
+    # Dependabot PRs and unconfigured forks get an empty value; the scan could
+    # only fail with "Not authorized", so it is skipped with a warning instead.
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -184,11 +189,16 @@ jobs:
         working-directory: sut/frontend
 
       - name: Run SonarCloud analysis
+        if: ${{ env.SONAR_TOKEN != '' }}
         uses: SonarSource/sonarqube-scan-action@v8
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           projectBaseDir: sut
+
+      - name: Report missing Sonar token
+        if: ${{ env.SONAR_TOKEN == '' }}
+        run: echo "::warning title=SonarCloud::SONAR_TOKEN is not configured - static analysis was skipped."
 
   deploy-docs:
     name: Generate & Publish Sphinx Docs

@@ -90,7 +90,7 @@ SonarCloud reads `sut/backend/coverage.xml` + `sut/frontend/coverage/lcov.info` 
 1. **`changes`** — `dorny/paths-filter` on `sut/backend/**`/`sut/frontend/**`; `workflow_dispatch` treats both as changed.
 2. **`backend-tests`** — Python 3.12, Poetry (`snok/install-poetry`, in-project `.venv`), `poetry install --with test`, `poetry run pytest`, archives `sut/backend/logs/*`.
 3. **`frontend-tests`** — Node 22, restores `google-services.json` from `GOOGLE_SERVICES_JSON_BASE64` if present, `npm ci`, `npm run lint`, `npm test`.
-4. **`sonarcloud`** — regenerates both coverage reports, runs `SonarSource/sonarqube-scan-action` with `projectBaseDir: sut`. Needs `SONAR_TOKEN`. Skips when `github.actor == 'dependabot[bot]'` (see Dependabot section).
+4. **`sonarcloud`** — regenerates both coverage reports, runs `SonarSource/sonarqube-scan-action` with `projectBaseDir: sut`. Needs `SONAR_TOKEN`. Skips when `github.actor == 'dependabot[bot]'` (see Dependabot section), and the scan step itself is skipped with a `::warning` when `SONAR_TOKEN` is empty (same approach as `giise2ebench-st-devorapp`) — so the job stays green on the human-pushed "Combined dependency updates" branches when the secret isn't set. Coverage still runs in that case.
 5. **`deploy-docs`** — only on push to `main`/tag. `poetry install --with docs`, builds Sphinx via the in-project venv (`working-directory: sut`), publishes to GitHub Pages (needs `github-pages` environment).
 6. **`android-release-apk`** — on `frontend/` change to `main`, or manual dispatch with `build_android=true`. Restores keystore + `google-services.json` from secrets, writes `MYAPP_UPLOAD_*` Gradle props, `./gradlew assembleRelease`, publishes APK as artifact + GitHub Release (`frontend-v1.0.0-<run_number>`).
 7. **`e2e-*`** (selenium-java, playwright-csharp, cypress-javascript, puppeteer-python) — **placeholders** only (checkout + TODO echo), run unconditionally so stage names are visible. Implementing one needs its toolchain setup, a way to stand up the SUT (reuse `./deploy.sh`), and removing the placeholder step.
@@ -129,7 +129,7 @@ When bumping by hand, respect the same lockstep sets (e.g. don't bump one `expo-
 
 `rebase-strategy: "disabled"` everywhere — stops auto-rebase from re-triggering CI (incl. `sonarcloud`) on every `main` push while a PR waits for review. `ci-cd.yml`'s `sonarcloud` job also guards `if: github.actor != 'dependabot[bot]'`, so individual Dependabot PRs skip it entirely — but that guard is keyed on the triggering actor, so a manually-combined "Combined dependency updates" branch (pushed by a human) still runs it.
 
-**Known gap**: `sut/sonar-project.properties` still has the *upstream* project's `sonar.projectKey`/`sonar.organization` (`uo289165_epi-climanuvem` / `uo289165-1`), so every `sonarcloud` run fails "Not authorized or project not found" until repointed at a project this repo's `SONAR_TOKEN` can access. Pre-existing, unrelated to dependency versions.
+**Known gap**: `sut/sonar-project.properties` still has the *upstream* project's `sonar.projectKey`/`sonar.organization` (`uo289165_epi-climanuvem` / `uo289165-1`), so once a `SONAR_TOKEN` *is* configured, the scan will fail "Not authorized or project not found" until repointed at a project that token can access. (Currently the secret is unset, so the scan is skipped with a warning rather than failing.) Pre-existing, unrelated to dependency versions.
 
 ## Conventions For This Repo
 
