@@ -39,7 +39,6 @@ i18n
     interpolation: {
       escapeValue: false, // react already safes from xss
     },
-    compatibilityJSON: 'v4', // Required for React Native
   });
 
 export default i18n;
