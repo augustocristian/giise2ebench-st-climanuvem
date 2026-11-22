@@ -1,0 +1,30 @@
+# Applied on top of sut/backend/docker-compose.yml + docker-compose.dev.override.yml for system tests.
+# Use scripts/sut-compose.sh, which stacks the three files.
+services:
+  backend:
+    image: ${BACKEND_IMAGE:-climanuvem-backend:test}
+    ports: !override
+      - "${BACKEND_PORT:-8000}:8000"
+    environment:
+      - TEST_MODE=true
+      - TEST_TOKEN=test-token-climanuvem
+      - TEST_USER_UID=test-user-e2e
+      - DISABLE_WORKER=true
+      - OLLAMA_URL=http://localhost:11434/api/generate
+      - CORS_ALLOW_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+    depends_on: !override
+      db:
+        condition: service_healthy
+      firebase-emulator:
+        condition: service_healthy
+
+  frontend:
+    image: ${FRONTEND_IMAGE:-climanuvem-frontend:test}
+    ports: !override
+      - "5173:8081"
+    environment:
+      - EXPO_PUBLIC_BACKEND_URL=http://localhost:${BACKEND_PORT:-8000}
+      - EXPO_PUBLIC_TEST_MODE=true
+
+  firebase-emulator:
+    image: ${FIREBASE_EMULATOR_IMAGE:-climanuvem-firebase-emulator:test}

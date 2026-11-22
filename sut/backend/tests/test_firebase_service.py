@@ -28,3 +28,21 @@ def test_verify_token_uses_configured_clock_skew(monkeypatch):
 
     assert decoded_token == expected_decoded_token
     assert verify_id_token_calls == [("firebase-token", 5)]
+
+
+def test_emulator_initializes_without_service_account(monkeypatch):
+    monkeypatch.setenv("TEST_MODE", "false")
+    monkeypatch.delenv("FIREBASE_KEY_PATH", raising=False)
+    monkeypatch.setenv("FIREBASE_AUTH_EMULATOR_HOST", "firebase-emulator:9099")
+    monkeypatch.setenv("FIREBASE_PROJECT_ID", "demo-test")
+    reset_settings_cache()
+
+    import firebase_admin
+    import app.infrastructure.firebase_service as firebase_service
+
+    init_calls = []
+    monkeypatch.setattr(firebase_admin, "initialize_app", lambda *args, **kwargs: init_calls.append((args, kwargs)))
+    firebase_service = importlib.reload(firebase_service)
+
+    assert init_calls == [((), {"options": {"projectId": "demo-test"}})]
+    assert firebase_service._firebase_enabled is True

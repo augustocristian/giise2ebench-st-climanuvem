@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 // @ts-ignore: Firebase TypeScript typings do not currently expose this correctly for React Native
-import { getAuth, initializeAuth, getReactNativePersistence } from 'firebase/auth';
+import { connectAuthEmulator, getAuth, initializeAuth, getReactNativePersistence } from 'firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
@@ -21,3 +21,8 @@ export const auth = Platform.OS === 'web'
   : initializeAuth(app, {
       persistence: getReactNativePersistence(AsyncStorage)
     });
+
+const authEmulatorUrl = process.env.EXPO_PUBLIC_FIREBASE_AUTH_EMULATOR_URL;
+if (authEmulatorUrl) {
+  connectAuthEmulator(auth, authEmulatorUrl, { disableWarnings: true });
+}

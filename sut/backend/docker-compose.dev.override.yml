@@ -1,0 +1,49 @@
+# Overrides docker-compose.yml for development: Firebase Auth emulator instead of a real project.
+#   docker compose -f docker-compose.yml -f docker-compose.dev.override.yml up --build
+services:
+  firebase-emulator:
+    build: ../firebase-emulator
+    container_name: climanuvem_firebase_emulator
+    ports:
+      - "9099:9099"
+      - "4000:4000"
+    networks:
+      - climanuvem_net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:9099/ >/dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+
+  backend:
+    volumes: !override
+      - backend_uploads:/app/uploads
+    environment:
+      - FIREBASE_KEY_PATH=
+      - FIREBASE_PROJECT_ID=demo-climanuvem
+      - FIREBASE_AUTH_EMULATOR_HOST=firebase-emulator:9099
+      - CORS_ALLOW_ORIGINS=http://localhost:8081,http://127.0.0.1:8081
+    depends_on:
+      firebase-emulator:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ../frontend
+      args:
+        - EXPO_PUBLIC_BACKEND_URL=http://localhost:8000
+    container_name: climanuvem_frontend
+    ports:
+      - "8081:8081"
+    environment:
+      - EXPO_PUBLIC_BACKEND_URL=http://localhost:8000
+      - EXPO_PUBLIC_DEFAULT_LANGUAGE=es
+      - EXPO_PUBLIC_FIREBASE_API_KEY=demo-api-key
+      - EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=demo-climanuvem.firebaseapp.com
+      - EXPO_PUBLIC_FIREBASE_PROJECT_ID=demo-climanuvem
+      - EXPO_PUBLIC_FIREBASE_APP_ID=1:000000000000:web:demo
+      - EXPO_PUBLIC_FIREBASE_AUTH_EMULATOR_URL=http://localhost:9099
+    depends_on:
+      - backend
+    networks:
+      - climanuvem_net
