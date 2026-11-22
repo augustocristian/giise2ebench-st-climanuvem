@@ -87,18 +87,18 @@ SonarCloud reads `sut/backend/coverage.xml` + `sut/frontend/coverage/lcov.info` 
 
 [`.github/workflows/ci-cd.yml`](.github/workflows/ci-cd.yml), adapted from upstream but pointed at `sut/backend`/`sut/frontend`. Triggers: `pull_request`, `push` (any branch), `workflow_dispatch` (`build_android` input). Jobs:
 
-Pipeline order: unit/integration tests → SonarCloud → Docker images → system tests (all frameworks) → publish images. Later stages use `if: !cancelled() && !contains(needs.*.result, 'failure')` so skipped upstream jobs (no `sut/` changes, Dependabot) don't block them.
+Pipeline order: unit/integration tests → SonarCloud (the gate) → Docker images → system tests (all frameworks) → publish images; the signed APK is also gated by SonarCloud only. Later stages use `if: !cancelled() && !contains(needs.*.result, 'failure')` so skipped upstream jobs (no `sut/` changes, Dependabot) don't block them.
 
 1. **`changes`** — `dorny/paths-filter` on `sut/backend/**`/`sut/frontend/**`; `workflow_dispatch` treats both as changed.
 2. **`backend-tests`** — Python 3.12, Poetry, `poetry run pytest`, archives `sut/backend/logs/*`.
 3. **`frontend-tests`** — Node 22, restores `google-services.json` if present, `npm ci`, `npm run lint`, `npm test`.
 4. **`sonarcloud`** — needs 2+3. Regenerates coverage, runs `SonarSource/sonarqube-scan-action` (`projectBaseDir: sut`), skipped for `dependabot[bot]`; scan step skipped with a `::warning` when `SONAR_TOKEN` is empty.
-5. **`docker-images`** — needs 2–4. Matrix builds `sut/backend`, `sut/frontend` (test-mode build args) and `sut/firebase-emulator` with Buildx + GHA cache; uploads `docker save` tarballs (`image-*`).
+5. **`docker-images`** — gated only by `sonarcloud` (4). Matrix builds `sut/backend`, `sut/frontend` (test-mode build args) and `sut/firebase-emulator` with Buildx + GHA cache; uploads `docker save` tarballs (`image-*`).
 6. **`e2e-selenium-java`** — needs 5. Loads the tarballs, starts the layered stack via `selenium-java/scripts/sut-compose.sh up --no-build` (prod `sut/backend/docker-compose.yml` + `docker-compose.dev.override.yml` + `selenium-java/docker-compose.test.override.yml`), seeds Firebase-emulator accounts (`seed-firebase-emulator.sh`), `mvn test -DCI=true -DtestFailureIgnore=false`, archives surefire reports. No Firebase secrets needed.
 7. **`e2e-playwright-csharp`, `e2e-cypress-javascript`, `e2e-puppeteer-python`** — needs 5; **placeholders** (checkout + TODO echo).
 8. **`publish-images`** — needs 6+7, only on push to `main`/tags. Loads the tarballs and pushes `ghcr.io/<repo>/{backend,frontend,firebase-emulator}:<ref>` and `:<sha>`.
 9. **`deploy-docs`** — only on push to `main`/tag. Sphinx → GitHub Pages.
-10. **`android-release-apk`** — on `frontend/` change to `main`, or manual dispatch with `build_android=true`. Signed APK as artifact + GitHub Release.
+10. **`android-release-apk`** — gated only by `sonarcloud` (plus `changes`, used just as a path filter); on `frontend/` change to `main`, or manual dispatch with `build_android=true`. Signed APK as artifact + GitHub Release.
 
 Secrets: `SONAR_TOKEN`; `GOOGLE_SERVICES_JSON_BASE64` (optional for frontend-tests/sonarcloud, required for android-release-apk); `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`; `EXPO_PUBLIC_*` (all only for android-release-apk). Same names/purposes as upstream — see [`sut/README.md`](sut/README.md#cicd).
 
