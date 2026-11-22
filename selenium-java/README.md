@@ -24,17 +24,14 @@ Covers two test layers:
 
 ### 1 — Deploy the SUT
 
-The deploy script clones the SUT from GitLab on first run, builds the Docker images, and waits until both the backend and frontend are ready.
+From `selenium-java/`, build the images from `../sut` and start the stack:
 
 ```bash
-# Linux / macOS
-./deploy-local.sh
-
-# Windows PowerShell
-./deploy-local.ps1
+docker compose -f docker-compose.test.yml up --build -d
 ```
 
-Services started:
+To reuse prebuilt images (as CI does), set `BACKEND_IMAGE` / `FRONTEND_IMAGE` and add `--no-build`.
+If port 8000 is taken, set `BACKEND_PORT` (and run the tests with `-DSUT_URL=http://localhost:<port>`).
 
 | Service | URL |
 |---|---|
@@ -73,11 +70,7 @@ does not run the real image-analysis suite and does not require Ollama. To test
 the full image-analysis flow, start the optional Ollama environment explicitly:
 
 ```bash
-# Linux / macOS
-./deploy-local.sh --with-ollama
-
-# Windows PowerShell
-./deploy-local.ps1 -WithOllama
+docker compose -f docker-compose.test.yml -f docker-compose.ollama-test.yml up --build -d
 ```
 
 Then run only the real image-analysis tests:
@@ -86,21 +79,16 @@ Then run only the real image-analysis tests:
 mvn test -Dtest=TestApiImageAnalysisSystem -DREAL_OLLAMA_TESTS=true
 ```
 
-`--with-ollama` / `-WithOllama` enables the analysis worker, starts an Ollama
-container, and pulls `${OLLAMA_MODEL:-gemma4:e4b}`. The first run can take longer
-while the model is downloaded. These tests validate the real upload and
+The override enables the analysis worker and starts an Ollama container; the model
+`${OLLAMA_MODEL:-gemma4:e4b}` must be pulled into it (`docker exec climanuvem_test_ollama ollama pull <model>`). These tests validate the real upload and
 processing flow: image upload, history polling, cloud detection, explainability
 boxes, no-cloud images, and file validation cases.
 
 ### 3 — Tear down
 
 ```bash
-./deploy-local.sh --down    # Linux / macOS
-./deploy-local.ps1 -Down    # Windows PowerShell
+docker compose -f docker-compose.test.yml down --volumes
 ```
-
-Teardown removes the test containers, network, PostgreSQL volume, and Ollama
-volume so the next run starts from a fully clean local environment.
 
 ---
 
@@ -221,3 +209,9 @@ The backend is started with `TEST_MODE=true` and `DISABLE_WORKER=true` (see `doc
 
 The optional real image-analysis suite has its own Ollama deployment flow in
 the quick-start section above.
+
+---
+
+## CI
+
+`.github/workflows/ci-cd.yml` builds the backend and frontend images once (`docker-images` job), shares them as artifacts, and the `e2e-selenium-java` job loads them, starts `docker-compose.test.yml` with `--no-build`, and runs `mvn test`. Without the `E2E_ACCOUNTS_CSV_BASE64` secret (base64 of `accounts.local.csv`) only the API tests run.

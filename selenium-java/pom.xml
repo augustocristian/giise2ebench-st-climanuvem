@@ -29,6 +29,8 @@
 
 		<retorch-tool.version>1.2.0</retorch-tool.version>
 
+		<testFailureIgnore>true</testFailureIgnore>
+
 	</properties>
 
 	<dependencies>
@@ -95,8 +97,6 @@
 	</dependencies>
 
 	<build>
-		<!-- Each TJob writes to its own subdirectory so parallel CI runs do not overwrite each other.
-		     Falls back to 'target/local' when TJOB_NAME is not set (local-execution profile). -->
 		<directory>${project.basedir}/target/${TJOB_NAME}</directory>
 		<plugins>
 			<plugin>
@@ -104,9 +104,8 @@
 				<artifactId>maven-surefire-plugin</artifactId>
 				<version>${surefire.version}</version>
 				<configuration>
-					<testFailureIgnore>true</testFailureIgnore>
+					<testFailureIgnore>${testFailureIgnore}</testFailureIgnore>
 					<redirectTestOutputToFile>true</redirectTestOutputToFile>
-					<!-- Required to avoid JVM crash on Linux Jenkins agents with OpenJDK -->
 					<useSystemClassLoader>false</useSystemClassLoader>
 					<skipTests>${skipTests}</skipTests>
 				</configuration>
@@ -183,8 +182,6 @@
 
 	<profiles>
 		<profile>
-			<!-- Activated automatically when TJOB_NAME is not passed as a -D property,
-			     i.e. during local IDE or command-line runs outside of CI. -->
 			<id>local-execution</id>
 			<activation>
 				<property>
