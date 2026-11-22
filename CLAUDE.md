@@ -85,7 +85,7 @@ SonarCloud reads `sut/backend/coverage.xml` + `sut/frontend/coverage/lcov.info` 
 
 ## CI/CD
 
-[`.github/workflows/ci-cd.yml`](.github/workflows/ci-cd.yml), adapted from upstream but pointed at `sut/backend`/`sut/frontend`. Triggers: `pull_request`, `push` (any branch), `workflow_dispatch` (`build_android` input). Jobs:
+[`.github/workflows/ci-cd.yml`](.github/workflows/ci-cd.yml), adapted from upstream but pointed at `sut/backend`/`sut/frontend`. Triggers: `pull_request` (any branch with a PR), `push` only to `main`/tags (so a PR isn't run twice), `workflow_dispatch` (`build_android` input). Jobs:
 
 Pipeline order: unit/integration tests → SonarCloud (the gate) → Docker images → system tests (all frameworks) → publish images; the signed APK is also gated by SonarCloud only. Later stages use `if: !cancelled() && !contains(needs.*.result, 'failure')` so skipped upstream jobs (no `sut/` changes, Dependabot) don't block them.
 
