@@ -16,7 +16,7 @@ export const useAuth = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Estado para el modal de estado (moderno)
+  // State for the (modern) status modal
   const [modalVisible, setModalVisible] = useState(false);
   const [modalConfig, setModalConfig] = useState<{
     type: 'loading' | 'success' | 'error' | 'info';
@@ -38,7 +38,7 @@ export const useAuth = () => {
     setModalVisible(false);
   };
 
-  // Configuración de Google Sign-In Nativo
+  // Native Google Sign-In configuration
   useEffect(() => {
     if (GoogleSignin && Platform.OS !== 'web') {
       try {
@@ -46,7 +46,7 @@ export const useAuth = () => {
           webClientId: '404226456428-6kqoq5ic42g0g4k0qe9cur5qt85spu25.apps.googleusercontent.com',
         });
       } catch (error) {
-        Logger.error('Error al configurar Google Sign-in', error);
+        Logger.error('Error configuring Google Sign-in', error);
       }
     }
   }, []);
@@ -69,7 +69,7 @@ export const useAuth = () => {
       }
     } catch (error: any) {
       Logger.error('Error Google Native', error);
-      // Manejar cancelaciones o errores específicos si es necesario
+      // Handle cancellations or specific errors if needed
       if (error.code !== 'SIGN_IN_CANCELLED') {
         showModal('error', t('auth.googleError'), t('auth.googleErrorDesc'));
       }
@@ -89,7 +89,7 @@ export const useAuth = () => {
     }
   };
 
-  // Creamos una referencia para poder apuntar al campo de contraseña
+  // Create a ref so we can focus the password field
   const passwordInputRef = useRef<TextInput>(null);
 
   const togglePasswordVisibility = () => {
@@ -97,7 +97,7 @@ export const useAuth = () => {
   };
 
   const handleLogin = async () => {
-    // Validar formato de email
+    // Validate email format
     if (!EMAIL_REGEX.test(email)) {
       showModal('error', t('common.error'), t('auth.invalidEmail'));
       return;

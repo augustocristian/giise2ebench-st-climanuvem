@@ -10,7 +10,11 @@ def get_current_user(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)]
 ):
     if credentials is None:
-        raise HTTPException(status_code=403, detail="Not authenticated")
+        raise HTTPException(
+            status_code=401,
+            detail="NOT_AUTHENTICATED",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     try:
         token = credentials.credentials
@@ -18,6 +22,6 @@ def get_current_user(
     except InvalidTokenError:
         raise HTTPException(
             status_code=401,
-            detail="Invalid token",
+            detail="INVALID_TOKEN",
             headers={"WWW-Authenticate": "Bearer"},
         )

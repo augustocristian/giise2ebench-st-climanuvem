@@ -30,7 +30,7 @@ export const getLocationData = async (translations: {
   try {
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
-      Logger.info("Permiso de ubicación denegado; se usará 'Ubicación desconocida'");
+      Logger.info("Location permission denied; 'Ubicación desconocida' will be used");
       return { locationStr, latitude, longitude };
     }
 
@@ -55,11 +55,11 @@ export const getLocationData = async (translations: {
         locationStr = `${loc.coords.latitude.toFixed(4)}, ${loc.coords.longitude.toFixed(4)}`;
       }
     } catch (geoError) {
-      Logger.warn('Error en reverse geocoding', geoError);
+      Logger.warn('Reverse geocoding error', geoError);
       locationStr = `${loc.coords.latitude.toFixed(4)}, ${loc.coords.longitude.toFixed(4)}`;
     }
   } catch (error) {
-    Logger.warn('Error obteniendo ubicación', error);
+    Logger.warn('Error getting location', error);
   }
 
   return { locationStr, latitude, longitude };
@@ -81,7 +81,7 @@ export const optimizeImage = async (uri: string) => {
     const result = await image.saveAsync({ compress: 0.9, format: SaveFormat.JPEG });
     return result.uri;
   } catch (error) {
-    Logger.warn('Error manipulando imagen (EXIF)', error);
+    Logger.warn('Error manipulating image (EXIF)', error);
     return uri;
   }
 };

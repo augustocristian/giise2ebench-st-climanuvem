@@ -16,35 +16,31 @@ import java.util.Set;
  */
 public class LoginPage extends BasePage {
 
-    private static final By EMAIL_INPUT      = inputByPlaceholder("Correo electrónico");
-    private static final By PASSWORD_INPUT   = inputByPlaceholder("Contraseña");
-    private static final By FORGOT_PASSWORD  = byPartialText("Olvidaste tu contraseña");
-    private static final By REGISTER_LINK    = byPartialText("Regístrate");
+    private static final By EMAIL_INPUT      = inputByPlaceholder("Email address");
+    private static final By PASSWORD_INPUT   = inputByPlaceholder("Password");
+    private static final By FORGOT_PASSWORD  = byPartialText("Forgot your password");
+    private static final By REGISTER_LINK    = byPartialText("Sign Up");
     private static final By SUBMIT_BUTTONS   = By.xpath(
             "//*[@role='button' or self::button or @tabindex]"
-                    + "[contains(normalize-space(.),'Iniciar Sesión')]");
+                    + "[contains(normalize-space(.),'Log In')]");
     private static final By GOOGLE_BUTTON    = byPartialText("Google");
-    private static final By HOME_MARKER      = byPartialText("Bienvenido");
+    private static final By HOME_MARKER      = byPartialText("Welcome!");
     private static final By LOGIN_FEEDBACK   = By.xpath(
             "//*[contains(translate(normalize-space(.),"
-                    + "'ABCDEFGHIJKLMNOPQRSTUVWXYZÁÉÍÓÚÜÑ',"
-                    + "'abcdefghijklmnopqrstuvwxyzáéíóúüñ'), 'error')"
+                    + "'ABCDEFGHIJKLMNOPQRSTUVWXYZ',"
+                    + "'abcdefghijklmnopqrstuvwxyz'), 'error')"
                     + " or contains(translate(normalize-space(.),"
-                    + "'ABCDEFGHIJKLMNOPQRSTUVWXYZÁÉÍÓÚÜÑ',"
-                    + "'abcdefghijklmnopqrstuvwxyzáéíóúüñ'), 'incorrect')"
+                    + "'ABCDEFGHIJKLMNOPQRSTUVWXYZ',"
+                    + "'abcdefghijklmnopqrstuvwxyz'), 'incorrect')"
                     + " or contains(translate(normalize-space(.),"
-                    + "'ABCDEFGHIJKLMNOPQRSTUVWXYZÁÉÍÓÚÜÑ',"
-                    + "'abcdefghijklmnopqrstuvwxyzáéíóúüñ'), 'credencial')"
+                    + "'ABCDEFGHIJKLMNOPQRSTUVWXYZ',"
+                    + "'abcdefghijklmnopqrstuvwxyz'), 'invalid')"
                     + " or contains(translate(normalize-space(.),"
-                    + "'ABCDEFGHIJKLMNOPQRSTUVWXYZÁÉÍÓÚÜÑ',"
-                    + "'abcdefghijklmnopqrstuvwxyzáéíóúüñ'), 'obligatorio')"
-                    + " or contains(translate(normalize-space(.),"
-                    + "'ABCDEFGHIJKLMNOPQRSTUVWXYZÁÉÍÓÚÜÑ',"
-                    + "'abcdefghijklmnopqrstuvwxyzáéíóúüñ'), 'requerid')]");
+                    + "'ABCDEFGHIJKLMNOPQRSTUVWXYZ',"
+                    + "'abcdefghijklmnopqrstuvwxyz'), 'required')]");
     private static final By FEEDBACK_ACCEPT  = By.xpath(
             "//*[@role='button' or self::button or @tabindex]"
-                    + "[contains(normalize-space(.),'Aceptar')"
-                    + " or contains(normalize-space(.),'Accept')"
+                    + "[contains(normalize-space(.),'Accept')"
                     + " or contains(normalize-space(.),'OK')]");
     private final String frontendUrl;
 
@@ -143,7 +139,7 @@ public class LoginPage extends BasePage {
                 || containsIdentityProviderMarker());
     }
 
-    /** Clicks "¿No tienes cuenta? Regístrate" and waits for the Register form. */
+    /** Clicks "Don't have an account? Sign Up" and waits for the Register form. */
     public RegisterPage clickRegisterLink() {
         click(REGISTER_LINK);
         return new RegisterPage(driver, frontendUrl);

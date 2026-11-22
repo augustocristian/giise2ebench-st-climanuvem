@@ -8,7 +8,7 @@ from jinja2 import Template
 logger = logging.getLogger(__name__)
 
 class OllamaClient:
-    """Cliente para interactuar con la API de Ollama de forma asíncrona."""
+    """Client for interacting with the Ollama API asynchronously."""
 
     PROMPTS_DIR = os.path.join(os.path.dirname(__file__), "prompts")
     
@@ -24,11 +24,11 @@ class OllamaClient:
         return template.render(**context)
         
     def _clean_and_parse_json(self, text: str) -> dict:
-        """Limpia la respuesta del modelo e intenta parsearla como JSON."""
-        # 1. Intentar encontrar el bloque JSON si el modelo incluyó texto extra o markdown
+        """Clean the model response and try to parse it as JSON."""
+        # 1. Try to find the JSON block if the model included extra text or markdown
         cleaned = text.strip()
         
-        # Si contiene bloques de código markdown, extraer el contenido
+        # If it contains markdown code blocks, extract the content
         if "```" in cleaned:
             opening_fence_idx = cleaned.find("```")
             content_start_idx = opening_fence_idx + 3
@@ -43,20 +43,20 @@ class OllamaClient:
             if closing_fence_idx != -1:
                 cleaned = cleaned[content_start_idx:closing_fence_idx].strip()
         
-        # 2. Si todavía no es un JSON puro, intentar encontrar el primer '{' y el último '}'
+        # 2. If it is still not pure JSON, try to find the first '{' and the last '}'
         if not (cleaned.startswith('{') and cleaned.endswith('}')):
             start_idx = cleaned.find('{')
             end_idx = cleaned.rfind('}')
             if start_idx != -1 and end_idx != -1:
                 cleaned = cleaned[start_idx:end_idx+1]
 
-        # 3. Intentar parsear
+        # 3. Try to parse
         try:
             return json.loads(cleaned)
         except json.JSONDecodeError as e:
             logger.warning("Error parsing model JSON response: %s", e)
             logger.debug("Raw model response: %s", text)
-            # Si falla, devolvemos un objeto vacío para evitar que el worker rompa
+            # On failure, return an empty object so the worker does not crash
             return {"predictions": []}
 
     def _normalize_prediction(self, prediction):
@@ -108,7 +108,7 @@ class OllamaClient:
         return normalized_predictions
 
     async def analyze_image(self, base64_image: str) -> list:
-        """Realiza un análisis simple de la imagen para clasificar las nubes."""
+        """Perform a simple image analysis to classify the clouds."""
         payload = {
             "model": self.model,
             "prompt": self._render_prompt("classifier_simple.j2"),
@@ -130,7 +130,7 @@ class OllamaClient:
             return self._extract_predictions(result)
 
     async def get_explainability_boxes(self, base64_image: str, labels: list) -> list:
-        """Obtiene las bounding boxes para una lista específica de etiquetas de nubes."""
+        """Get the bounding boxes for a specific list of cloud labels."""
         labels_str = ", ".join(labels)
         prompt = self._render_prompt("explainer.j2", labels_str=labels_str)
         

@@ -17,6 +17,7 @@ import { getAnalysisDetailStyles } from '@/src/styles/globalStyles';
 import { formatDate, getStatusColor, getStatusText, getWarningLevelColor } from '@/src/utils/statusUtils';
 import { computeBoundingBoxes } from '@/src/utils/analysisGeometry';
 import { useAnalysisDetail } from '@/src/controllers/useAnalysisDetail';
+import { useAuthenticatedImageSource } from '@/src/controllers/useAuthenticatedImageSource';
 
 interface AnalysisDetailProps {
   analysis: AnalysisHistoryItem;
@@ -114,6 +115,7 @@ export const AnalysisDetail = ({ analysis, onBack, onDeleteSuccess }: AnalysisDe
   } = useAnalysisDetail(analysis, onDeleteSuccess);
   const [imageLayout, setImageLayout] = useState<{ width: number; height: number } | null>(null);
   const [intrinsicImageSize, setIntrinsicImageSize] = useState<{ width: number; height: number } | null>(null);
+  const imageSource = useAuthenticatedImageSource(analysis.imageUrl);
   const boundingBoxes = computeBoundingBoxes(analysis, imageLayout, intrinsicImageSize);
 
   const handleDeletePress = () => {
@@ -146,9 +148,9 @@ export const AnalysisDetail = ({ analysis, onBack, onDeleteSuccess }: AnalysisDe
 
       <ScrollView contentContainerStyle={styles.detailContent}>
         <View style={styles.imageContainer} onLayout={handleLayout}>
-          {analysis.imageUrl ? (
+          {imageSource ? (
             <Image 
-              source={{ uri: analysis.imageUrl }} 
+              source={imageSource}
               style={styles.analysisImage}
               resizeMode="contain"
               onLoad={(e) => setIntrinsicImageSize({

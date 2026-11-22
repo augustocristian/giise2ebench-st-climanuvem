@@ -18,7 +18,7 @@ export const useRegister = () => {
   const [loading, setLoading] = useState(false);
   const { modalVisible, modalConfig, showModal, hideModal } = useStatusModal();
 
-  // Referencias para el foco de los inputs
+  // Refs to control input focus
   const emailInputRef = useRef<TextInput>(null);
   const passwordInputRef = useRef<TextInput>(null);
   const confirmPasswordInputRef = useRef<TextInput>(null);
@@ -32,7 +32,7 @@ export const useRegister = () => {
   };
 
   const handleRegister = async () => {
-    // Validaciones
+    // Validations
     if (username.length < 3 || username.length > 20) {
       showModal('error', t('common.error'), t('auth.usernameLength'));
       return;
@@ -70,7 +70,7 @@ export const useRegister = () => {
         }
       );
     } else {
-      // Si falla, se podría borrar la contraseña por seguridad
+      // On failure, the password could be cleared for security
       setPassword('');
       setConfirmPassword('');
       const message = getAuthErrorMessage(response.error ?? '');

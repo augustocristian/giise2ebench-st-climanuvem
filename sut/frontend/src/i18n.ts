@@ -10,7 +10,7 @@ const resources = {
   es,
 };
 
-// Obtenemos el idioma del sistema
+// Get the system language
 const getSystemLocale = () => {
   const configuredLanguage = process.env.EXPO_PUBLIC_DEFAULT_LANGUAGE;
   if (configuredLanguage === 'es' || configuredLanguage === 'en') {
@@ -20,7 +20,7 @@ const getSystemLocale = () => {
   const locales = Localization.getLocales();
   if (locales && locales.length > 0) {
     const languageCode = locales[0].languageCode;
-    // Solo soportamos en y es, si es otro usamos en por defecto
+    // We only support en and es; fall back to en otherwise
     if (languageCode === 'es' || languageCode === 'en') {
       return languageCode;
     }
@@ -34,7 +34,7 @@ i18n
   .use(initReactI18next)
   .init({
     resources,
-    lng: getSystemLocale(), // Idioma inicial
+    lng: getSystemLocale(), // Initial language
     fallbackLng: 'en',
     interpolation: {
       escapeValue: false, // react already safes from xss

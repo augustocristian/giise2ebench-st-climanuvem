@@ -30,7 +30,7 @@ interface HistoryModalProps {
   history: AnalysisHistoryItem[];
   loading: boolean;
   onRefresh?: () => void;
-  initialSelectedAnalysisId?: string | null;
+  initialSelectedAnalysisId?: number | null;
 }
 
 const HandleBar = () => {
@@ -142,7 +142,7 @@ const HistoryContent = ({
     <FlatList
       data={history}
       renderItem={({ item }) => <RenderHistoryItem item={item} onSelect={setSelectedAnalysis} />}
-      keyExtractor={(item) => item.id}
+      keyExtractor={(item) => String(item.id)}
       contentContainerStyle={styles.listContent}
       ItemSeparatorComponent={Separator}
     />
@@ -155,7 +155,7 @@ export const HistoryModal = ({ visible, onClose, history, loading, onRefresh, in
   const styles = getHistoryModalStyles(theme);
   
   const [selectedAnalysis, setSelectedAnalysis] = useState<AnalysisHistoryItem | null>(null);
-  const [appliedInitialSelectionId, setAppliedInitialSelectionId] = useState<string | null | undefined>(undefined);
+  const [appliedInitialSelectionId, setAppliedInitialSelectionId] = useState<number | null | undefined>(undefined);
   const translateY = useSharedValue(0);
 
   if (

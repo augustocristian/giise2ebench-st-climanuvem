@@ -4,15 +4,18 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPatch;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.entity.ContentType;
+import org.apache.http.entity.StringEntity;
 import org.apache.http.entity.mime.MultipartEntityBuilder;
 import org.apache.http.entity.mime.content.ByteArrayBody;
 import org.apache.http.entity.mime.content.StringBody;
@@ -20,6 +23,7 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,8 +34,12 @@ import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Properties;
 
 /**
@@ -58,10 +66,28 @@ public class BaseApiClass {
     protected static class ApiResponse {
         private final int statusCode;
         private final String body;
+        private final Map<String, String> headers;
+        private final byte[] bodyBytes;
 
-        ApiResponse(int statusCode, String body) {
+        ApiResponse(int statusCode, String body, Map<String, String> headers, byte[] bodyBytes) {
             this.statusCode = statusCode;
             this.body = body;
+            this.headers = headers;
+            this.bodyBytes = bodyBytes;
+        }
+
+        /** Raw response body bytes (use for binary payloads such as images). */
+        public byte[] getBodyBytes() {
+            return bodyBytes;
+        }
+
+        /** Case-insensitive header lookup; null when absent. */
+        public String getHeader(String name) {
+            return headers.get(name.toLowerCase(Locale.ROOT));
+        }
+
+        public JsonObject json() {
+            return JsonParser.parseString(body).getAsJsonObject();
         }
 
         public int getStatusCode() {
@@ -113,147 +139,219 @@ public class BaseApiClass {
 
     // ── URL builders ─────────────────────────────────────────────────────────
 
-    protected String analysisUrl(String path) {
-        return sutUrl + "/analysis" + path;
+    /** Builds {@code <sut>/api/v1/analyses<path>}; {@code path} is empty or starts with "/" or "?". */
+    protected String analysesUrl(String path) {
+        return sutUrl + "/api/v1/analyses" + path;
     }
 
+    protected String analysisUrl(int id) {
+        return analysesUrl("/" + id);
+    }
+
+    /** Builds {@code <sut>/api/v1<path>}; {@code path} is empty or starts with "/". */
+    protected String apiUrl(String path) {
+        return sutUrl + "/api/v1" + path;
+    }
+
+    /** Builds {@code <sut><path>} with no version prefix (used to assert removed legacy routes). */
     protected String rootUrl(String path) {
         return sutUrl + path;
+    }
+
+    /** URL of {@code GET /api/v1/analyses/{id}/image}. */
+    protected String analysisImageUrl(int id) {
+        return analysisUrl(id) + "/image";
+    }
+
+    // ── Generic HTTP ─────────────────────────────────────────────────────────
+
+    /** Request with an arbitrary HTTP method (used e.g. to verify 405 responses). */
+    private static class MethodRequest extends HttpRequestBase {
+        private final String method;
+
+        MethodRequest(String method, String url) {
+            this.method = method;
+            setURI(URI.create(url));
+        }
+
+        @Override
+        public String getMethod() {
+            return method;
+        }
+    }
+
+    /** Executes a request and captures status, headers and body. */
+    protected ApiResponse execute(HttpUriRequest request) throws IOException {
+        try (CloseableHttpResponse response = httpClient.execute(request)) {
+            HttpEntity entity = response.getEntity();
+            byte[] bytes = entity != null ? EntityUtils.toByteArray(entity) : new byte[0];
+            java.nio.charset.Charset charset = java.nio.charset.StandardCharsets.ISO_8859_1;
+            if (entity != null) {
+                ContentType ct = ContentType.get(entity);
+                if (ct != null && ct.getCharset() != null) {
+                    charset = ct.getCharset();
+                }
+            }
+            String body = new String(bytes, charset);
+            Map<String, String> headers = new HashMap<>();
+            for (Header header : response.getAllHeaders()) {
+                headers.put(header.getName().toLowerCase(Locale.ROOT), header.getValue());
+            }
+            int status = response.getStatusLine().getStatusCode();
+            log.debug("{} {} -> {} ({} chars)", request.getMethod(), request.getURI(), status, body.length());
+            return new ApiResponse(status, body, headers, bytes);
+        }
+    }
+
+    private static <T extends HttpUriRequest> T withAuth(T request, boolean auth) {
+        request.addHeader("Accept", "application/json");
+        if (auth) {
+            request.addHeader("Authorization", "Bearer " + testToken);
+        }
+        return request;
+    }
+
+    /** Sends a body-less request with an arbitrary method. */
+    protected ApiResponse requestResponse(String method, String url, boolean auth) throws IOException {
+        return execute(withAuth(new MethodRequest(method, url), auth));
     }
 
     // ── Unauthenticated HTTP ─────────────────────────────────────────────────
 
     protected String get(String url) throws IOException {
-        HttpGet request = new HttpGet(url);
-        request.addHeader("Accept", "application/json");
-        try (CloseableHttpResponse response = httpClient.execute(request)) {
-            HttpEntity entity = response.getEntity();
-            String body = entity != null ? EntityUtils.toString(entity) : "";
-            log.debug("GET {} -> {} ({} chars)", url, response.getStatusLine().getStatusCode(), body.length());
-            return body;
-        }
+        return getResponse(url).getBody();
     }
 
     protected int getStatus(String url) throws IOException {
-        return statusOf(new HttpGet(url));
+        return getResponse(url).getStatusCode();
+    }
+
+    protected ApiResponse getResponse(String url) throws IOException {
+        return execute(withAuth(new HttpGet(url), false));
     }
 
     // ── Authenticated HTTP ───────────────────────────────────────────────────
 
     protected String getAuth(String url) throws IOException {
+        return getResponseAuth(url).getBody();
+    }
+
+    protected ApiResponse getResponseAuth(String url) throws IOException {
+        return execute(withAuth(new HttpGet(url), true));
+    }
+
+    /** GET accepting any content type; read binary payloads with {@link ApiResponse#getBodyBytes()}. */
+    protected ApiResponse getBytesResponse(String url, boolean auth) throws IOException {
         HttpGet request = new HttpGet(url);
-        request.addHeader("Accept", "application/json");
-        request.addHeader("Authorization", "Bearer " + testToken);
-        try (CloseableHttpResponse response = httpClient.execute(request)) {
-            HttpEntity entity = response.getEntity();
-            String body = entity != null ? EntityUtils.toString(entity) : "";
-            log.debug("GET(auth) {} -> {} ({} chars)", url, response.getStatusLine().getStatusCode(), body.length());
-            return body;
+        request.addHeader("Accept", "*/*");
+        if (auth) {
+            request.addHeader("Authorization", "Bearer " + testToken);
         }
+        return execute(request);
     }
 
     protected int getStatusAuth(String url) throws IOException {
-        HttpGet request = new HttpGet(url);
-        request.addHeader("Authorization", "Bearer " + testToken);
-        return statusOf(request);
+        return getResponseAuth(url).getStatusCode();
+    }
+
+    protected ApiResponse deleteResponse(String url, boolean auth) throws IOException {
+        return execute(withAuth(new HttpDelete(url), auth));
     }
 
     protected int deleteStatusAuth(String url) throws IOException {
-        HttpDelete request = new HttpDelete(url);
-        request.addHeader("Authorization", "Bearer " + testToken);
-        return statusOf(request);
+        return deleteResponse(url, true).getStatusCode();
     }
 
-    protected int patchStatusAuth(String url) throws IOException {
-        HttpPatch request = new HttpPatch(url);
-        request.addHeader("Authorization", "Bearer " + testToken);
-        return statusOf(request);
+    /** {@code PATCH url} with JSON body {@code {"status": <status>}}. */
+    protected ApiResponse patchStatusResponse(String url, String status, boolean auth) throws IOException {
+        return patchJsonResponse(url, "{\"status\": \"" + status + "\"}", auth);
+    }
+
+    protected ApiResponse patchJsonResponse(String url, String json, boolean auth) throws IOException {
+        HttpPatch request = withAuth(new HttpPatch(url), auth);
+        request.setEntity(new StringEntity(json, ContentType.APPLICATION_JSON));
+        return execute(request);
+    }
+
+    /** Cancels an analysis via {@code PATCH /api/v1/analyses/{id}} with {@code {"status":"cancelled"}}. */
+    protected ApiResponse cancelAnalysis(int id) throws IOException {
+        return patchStatusResponse(analysisUrl(id), "cancelled", true);
     }
 
     // ── Multipart image upload ────────────────────────────────────────────────
 
     protected String uploadImage(String url, byte[] imageBytes, String location) throws IOException {
-        HttpPost request = new HttpPost(url);
-        request.addHeader("Authorization", "Bearer " + testToken);
-        HttpEntity entity = MultipartEntityBuilder.create()
-                .addPart("file", new ByteArrayBody(imageBytes, ContentType.IMAGE_JPEG, "test.jpg"))
-                .addPart("location", new StringBody(location, ContentType.TEXT_PLAIN))
-                .build();
-        request.setEntity(entity);
-        try (CloseableHttpResponse response = httpClient.execute(request)) {
-            HttpEntity responseEntity = response.getEntity();
-            String body = responseEntity != null ? EntityUtils.toString(responseEntity) : "";
-            log.debug("POST(upload) {} -> {} ({} chars)", url, response.getStatusLine().getStatusCode(), body.length());
-            return body;
-        }
+        return uploadImageResponse(url, imageBytes, "test.jpg", ContentType.IMAGE_JPEG, location, null, true)
+                .getBody();
     }
 
     protected int uploadImageStatus(String url, byte[] imageBytes, String location) throws IOException {
-        HttpPost request = new HttpPost(url);
-        request.addHeader("Authorization", "Bearer " + testToken);
-        HttpEntity entity = MultipartEntityBuilder.create()
-                .addPart("file", new ByteArrayBody(imageBytes, ContentType.IMAGE_JPEG, "test.jpg"))
-                .addPart("location", new StringBody(location, ContentType.TEXT_PLAIN))
-                .build();
-        request.setEntity(entity);
-        return statusOf(request);
+        return uploadImageResponse(url, imageBytes, "test.jpg", ContentType.IMAGE_JPEG, location, null, true)
+                .getStatusCode();
+    }
+
+    /** Uploads a valid test JPEG to {@code POST /api/v1/analyses} and returns the full response. */
+    protected ApiResponse uploadTestImage(String location) throws IOException {
+        return uploadImageResponse(analysesUrl(""), createTestImage(), "test.jpg", ContentType.IMAGE_JPEG,
+                location, null, true);
     }
 
     protected String uploadImage(String url, byte[] imageBytes, String filename, ContentType contentType,
             String location, boolean includeExplainability) throws IOException {
-        return uploadImageResponse(url, imageBytes, filename, contentType, location, includeExplainability).getBody();
+        return uploadImageResponse(url, imageBytes, filename, contentType, location, includeExplainability)
+                .getBody();
     }
 
     protected ApiResponse uploadImageResponse(String url, byte[] imageBytes, String filename, ContentType contentType,
             String location, boolean includeExplainability) throws IOException {
-        HttpPost request = new HttpPost(url);
-        request.addHeader("Authorization", "Bearer " + testToken);
-        HttpEntity entity = MultipartEntityBuilder.create()
+        return uploadImageResponse(url, imageBytes, filename, contentType, location, includeExplainability, true);
+    }
+
+    /** Multipart upload with camelCase form fields; {@code includeExplainability} omitted when null. */
+    protected ApiResponse uploadImageResponse(String url, byte[] imageBytes, String filename, ContentType contentType,
+            String location, Boolean includeExplainability, boolean auth) throws IOException {
+        HttpPost request = withAuth(new HttpPost(url), auth);
+        MultipartEntityBuilder builder = MultipartEntityBuilder.create()
                 .addPart("file", new ByteArrayBody(imageBytes, contentType, filename))
-                .addPart("location", new StringBody(location, ContentType.TEXT_PLAIN))
-                .addPart("include_explainability", new StringBody(String.valueOf(includeExplainability),
-                        ContentType.TEXT_PLAIN))
-                .build();
-        request.setEntity(entity);
-        try (CloseableHttpResponse response = httpClient.execute(request)) {
-            HttpEntity responseEntity = response.getEntity();
-            String body = responseEntity != null ? EntityUtils.toString(responseEntity) : "";
-            log.debug("POST(upload) {} -> {} ({} chars)", url, response.getStatusLine().getStatusCode(), body.length());
-            return new ApiResponse(response.getStatusLine().getStatusCode(), body);
+                .addPart("location", new StringBody(location, ContentType.TEXT_PLAIN));
+        if (includeExplainability != null) {
+            builder.addPart("includeExplainability",
+                    new StringBody(String.valueOf(includeExplainability), ContentType.TEXT_PLAIN));
         }
+        request.setEntity(builder.build());
+        return execute(request);
     }
 
     protected int uploadImageStatus(String url, byte[] imageBytes, String filename, ContentType contentType,
             String location, boolean includeExplainability) throws IOException {
-        HttpPost request = new HttpPost(url);
-        request.addHeader("Authorization", "Bearer " + testToken);
-        HttpEntity entity = MultipartEntityBuilder.create()
-                .addPart("file", new ByteArrayBody(imageBytes, contentType, filename))
+        return uploadImageResponse(url, imageBytes, filename, contentType, location, includeExplainability)
+                .getStatusCode();
+    }
+
+    protected ApiResponse uploadWithoutFileResponse(String url, String location) throws IOException {
+        HttpPost request = withAuth(new HttpPost(url), true);
+        request.setEntity(MultipartEntityBuilder.create()
                 .addPart("location", new StringBody(location, ContentType.TEXT_PLAIN))
-                .addPart("include_explainability", new StringBody(String.valueOf(includeExplainability),
-                        ContentType.TEXT_PLAIN))
-                .build();
-        request.setEntity(entity);
-        return statusOf(request);
+                .build());
+        return execute(request);
     }
 
     protected int uploadWithoutFileStatus(String url, String location) throws IOException {
-        HttpPost request = new HttpPost(url);
-        request.addHeader("Authorization", "Bearer " + testToken);
-        HttpEntity entity = MultipartEntityBuilder.create()
-                .addPart("location", new StringBody(location, ContentType.TEXT_PLAIN))
-                .build();
-        request.setEntity(entity);
-        return statusOf(request);
+        return uploadWithoutFileResponse(url, location).getStatusCode();
     }
 
-    private int statusOf(HttpUriRequest request) throws IOException {
-        try (CloseableHttpResponse response = httpClient.execute(request)) {
-            EntityUtils.consumeQuietly(response.getEntity());
-            int status = response.getStatusLine().getStatusCode();
-            log.debug("{} {} -> {}", request.getMethod(), request.getURI(), status);
-            return status;
-        }
+    /** Asserts the uniform problem+json error body: HTTP status and machine-code detail. */
+    protected static void assertProblem(ApiResponse response, int expectedStatus, String expectedDetail) {
+        String contentType = response.getHeader("Content-Type");
+        JsonObject body = JsonParser.parseString(response.getBody()).getAsJsonObject();
+        Assertions.assertAll(
+                () -> Assertions.assertEquals(expectedStatus, response.getStatusCode(), "HTTP status"),
+                () -> Assertions.assertTrue(
+                        contentType != null && contentType.startsWith("application/problem+json"),
+                        "Content-Type must be application/problem+json but was " + contentType),
+                () -> Assertions.assertEquals(expectedStatus, body.get("status").getAsInt(), "problem 'status'"),
+                () -> Assertions.assertEquals(expectedDetail, body.get("detail").getAsString(),
+                        "problem 'detail' machine code"));
     }
 
     // ── JSON helpers ──────────────────────────────────────────────────────────
@@ -271,7 +369,7 @@ public class BaseApiClass {
     }
 
     protected JsonObject findAnalysisInHistory(int analysisId) throws IOException {
-        JsonArray history = getJsonArrayAuth(analysisUrl("/history"));
+        JsonArray history = getJsonArrayAuth(analysesUrl("?size=100"));
         for (JsonElement element : history) {
             if (element.isJsonObject()) {
                 JsonObject object = element.getAsJsonObject();
@@ -386,22 +484,22 @@ public class BaseApiClass {
     }
 
     /**
-     * Uploads a test image to {@code POST /analysis/upload} and returns the
+     * Uploads a test image to {@code POST /api/v1/analyses} and returns the
      * assigned analysis ID.
      */
     protected int createAnalysis(String location) throws IOException {
         byte[] img = createTestImage();
-        String response = uploadImage(analysisUrl("/upload"), img, location);
-        return JsonParser.parseString(response).getAsJsonObject().get("analysis_id").getAsInt();
+        String response = uploadImage(analysesUrl(""), img, location);
+        return JsonParser.parseString(response).getAsJsonObject().get("id").getAsInt();
     }
 
     /**
      * Deletes all analysis records for the test user via
-     * {@code DELETE /analysis/user-data}.
+     * {@code DELETE /api/v1/analyses}.
      * Call this in {@code @BeforeAll} for tests that require an empty history.
      */
     protected void deleteAllUserData() throws IOException {
-        deleteStatusAuth(analysisUrl("/user-data"));
+        deleteStatusAuth(analysesUrl(""));
         log.debug("Deleted all user data for test user");
     }
 

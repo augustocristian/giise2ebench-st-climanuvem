@@ -1,4 +1,5 @@
-from sqlalchemy import text
+from datetime import datetime, timezone
+from sqlalchemy import DateTime, bindparam, text
 from app.infrastructure.database.database import engine
 
 CLOUD_NAME_MAPPING = {
@@ -48,12 +49,16 @@ class AnalysisRepository:
                     is_anon=is_anon,
                 )
 
+        # `analysis.datetime` is a TIMESTAMP WITHOUT TIME ZONE. Its DB default
+        # (CURRENT_TIMESTAMP) is expressed in the DB session time zone on PostgreSQL,
+        # so we always store an explicit naive-UTC value instead. The API layer then
+        # reads stored values as UTC.
         result = self._execute(
             text("""
-                INSERT INTO analysis (uid, image_path, location, latitude, longitude, is_anon, status)
-                VALUES (:uid, :image_path, :location, :latitude, :longitude, :is_anon, 'analyzing')
+                INSERT INTO analysis (uid, image_path, location, latitude, longitude, is_anon, status, datetime)
+                VALUES (:uid, :image_path, :location, :latitude, :longitude, :is_anon, 'analyzing', :datetime)
                 RETURNING id
-            """),
+            """).bindparams(bindparam("datetime", type_=DateTime)),
             {
                 "uid": uid,
                 "image_path": image_path,
@@ -61,16 +66,12 @@ class AnalysisRepository:
                 "latitude": latitude,
                 "longitude": longitude,
                 "is_anon": is_anon,
+                "datetime": datetime.now(timezone.utc).replace(tzinfo=None),
             },
         )
         return result.scalar()
 
-    def get_history_rows(self, uid: str):
-        if self.db is None:
-            with engine.begin() as conn:
-                return AnalysisRepository(conn).get_history_rows(uid)
-
-        query = text("""
+    _ANALYSIS_ROWS_SELECT = """
             SELECT
                 a.id,
                 a.status,
@@ -87,13 +88,43 @@ class AnalysisRepository:
                 c.forecast,
                 c.warning,
                 c.warning_level
-            FROM analysis a
+            FROM {source} a
             LEFT JOIN analysis_cloud ac ON a.id = ac.analysis_id
             LEFT JOIN clouds c ON ac.cloud_id = c.id
-            WHERE a.uid = :uid
-            ORDER BY a.datetime DESC
-        """)
-        return self._execute(query, {"uid": uid}).fetchall()
+            ORDER BY a.datetime DESC, a.id DESC
+        """
+
+    def get_history_rows(self, uid: str, limit: int = 50, offset: int = 0):
+        """Rows (analysis x detected clouds) for one page of the user's analyses, newest first."""
+        if self.db is None:
+            with engine.begin() as conn:
+                return AnalysisRepository(conn).get_history_rows(uid, limit, offset)
+
+        source = (
+            "(SELECT * FROM analysis WHERE uid = :uid "
+            "ORDER BY datetime DESC, id DESC LIMIT :limit OFFSET :offset)"
+        )
+        query = text(self._ANALYSIS_ROWS_SELECT.format(source=source))
+        return self._execute(query, {"uid": uid, "limit": limit, "offset": offset}).fetchall()
+
+    def count_user_analyses(self, uid: str) -> int:
+        if self.db is None:
+            with engine.begin() as conn:
+                return AnalysisRepository(conn).count_user_analyses(uid)
+
+        return self._execute(
+            text("SELECT COUNT(*) FROM analysis WHERE uid = :uid"), {"uid": uid}
+        ).scalar() or 0
+
+    def get_analysis_rows(self, analysis_id: int, uid: str):
+        """Rows (analysis x detected clouds) for one analysis owned by uid; empty if none."""
+        if self.db is None:
+            with engine.begin() as conn:
+                return AnalysisRepository(conn).get_analysis_rows(analysis_id, uid)
+
+        source = "(SELECT * FROM analysis WHERE id = :id AND uid = :uid)"
+        query = text(self._ANALYSIS_ROWS_SELECT.format(source=source))
+        return self._execute(query, {"id": analysis_id, "uid": uid}).fetchall()
 
     def delete_user_analyses(self, uid: str) -> list[str]:
         if self.db is None:

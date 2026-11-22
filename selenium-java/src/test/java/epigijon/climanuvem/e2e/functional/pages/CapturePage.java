@@ -13,10 +13,10 @@ import org.openqa.selenium.support.ui.ExpectedConditions;
 public class CapturePage extends BasePage {
 
     private static final By CAMERA_CARD        = byPartialText("Tomar Foto");
-    private static final By GALLERY_CARD       = byPartialText("Galería");
+    private static final By GALLERY_CARD       = byPartialText("Gallery");
     private static final By EXPLAINABILITY     = byPartialText("Explicabilidad");
     private static final By FORMATS_INFO       = byPartialText("Formatos soportados");
-    private static final By PAGE_HEADER        = byPartialText("Analizar Imagen");
+    private static final By PAGE_HEADER        = byPartialText("Analyze Image");
 
     public CapturePage(WebDriver driver) {
         super(driver);
