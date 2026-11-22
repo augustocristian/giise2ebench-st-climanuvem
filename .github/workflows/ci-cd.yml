@@ -443,7 +443,7 @@ jobs:
 
       - name: Start the SUT (prod compose + dev override + test override)
         working-directory: selenium-java
-        run: ./scripts/sut-compose.sh up --detach --no-build db firebase-emulator backend frontend
+        run: bash ./scripts/sut-compose.sh up --detach --no-build db firebase-emulator backend frontend
 
       - name: Wait for backend, frontend and Firebase emulator
         run: |
@@ -453,12 +453,12 @@ jobs:
               sleep 5
             done
             echo "::error::$service did not become ready"
-            selenium-java/scripts/sut-compose.sh logs
+            bash selenium-java/scripts/sut-compose.sh logs
             exit 1
           done
 
       - name: Seed Firebase emulator accounts
-        run: selenium-java/scripts/seed-firebase-emulator.sh
+        run: bash selenium-java/scripts/seed-firebase-emulator.sh
 
       - name: Set up Java
         uses: actions/setup-java@v6
@@ -474,7 +474,7 @@ jobs:
 
       - name: Show container logs on failure
         if: failure()
-        run: selenium-java/scripts/sut-compose.sh logs
+        run: bash selenium-java/scripts/sut-compose.sh logs
 
       - name: Archive test reports
         if: always()
@@ -486,7 +486,7 @@ jobs:
 
       - name: Tear down
         if: always()
-        run: selenium-java/scripts/sut-compose.sh down --volumes
+        run: bash selenium-java/scripts/sut-compose.sh down --volumes
 
   # Placeholders: no-op stages for the remaining tool/language combinations.
 
