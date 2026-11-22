@@ -175,6 +175,11 @@ updates:
     labels:
       - "backend"
       - "docker"
+    ignore:
+      # Keep the image on the Python version CI tests against; newer interpreters
+      # lack prebuilt pydantic-core wheels and the build falls back to Rust.
+      - dependency-name: "python"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
 
   - package-ecosystem: "docker"
     directory: "/sut/frontend"

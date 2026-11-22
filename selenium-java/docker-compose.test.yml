@@ -17,7 +17,8 @@ services:
       retries: 5
 
   backend:
-    build: ../epi-climanuvem/backend
+    image: ${BACKEND_IMAGE:-climanuvem-backend:test}
+    build: ../sut/backend
     container_name: climanuvem_test_backend
     ports:
       - "${BACKEND_PORT:-8000}:8000"
@@ -37,19 +38,18 @@ services:
       - climanuvem_test_net
 
   frontend:
+    image: ${FRONTEND_IMAGE:-climanuvem-frontend:test}
     build:
-      context: ../epi-climanuvem/frontend
+      context: ../sut/frontend
       args:
-        # Selenium runs on the host machine, so localhost:8000 reaches the backend
-        # through Docker's port mapping.
-        - EXPO_PUBLIC_BACKEND_URL=http://localhost:8000
+        - EXPO_PUBLIC_BACKEND_URL=http://localhost:${BACKEND_PORT:-8000}
         - EXPO_PUBLIC_DEFAULT_LANGUAGE=es
         - EXPO_PUBLIC_TEST_MODE=true
     container_name: climanuvem_test_frontend
     ports:
       - "5173:8081"
     environment:
-      - EXPO_PUBLIC_BACKEND_URL=http://localhost:8000
+      - EXPO_PUBLIC_BACKEND_URL=http://localhost:${BACKEND_PORT:-8000}
       - EXPO_PUBLIC_DEFAULT_LANGUAGE=es
       - EXPO_PUBLIC_TEST_MODE=true
       - EXPO_PUBLIC_FIREBASE_API_KEY=${EXPO_PUBLIC_FIREBASE_API_KEY:-AIzaSyBF74HV7abhxnYkcsxMpH5nsGTaWulJhRo}
@@ -60,6 +60,7 @@ services:
       - EXPO_PUBLIC_FIREBASE_APP_ID=${EXPO_PUBLIC_FIREBASE_APP_ID:-1:404226456428:web:3fabae5ed71071449f1149}
       - EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID=${EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID:-G-N0V5DZHV7N}
       - CI=1
+      - EXPO_ROUTER_DISABLE_RN_NAVIGATION_CHECK=1
     depends_on:
       - backend
     networks:
