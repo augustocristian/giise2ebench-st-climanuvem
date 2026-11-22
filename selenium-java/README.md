@@ -24,19 +24,22 @@ Covers two test layers:
 
 ### 1 — Deploy the SUT
 
-From `selenium-java/`, build the images from `../sut` and start the stack:
+The stack is three layered Compose files: the production `sut/backend/docker-compose.yml`, the dev override (adds the Firebase Auth emulator) and `docker-compose.test.override.yml` (test mode, ports, images). `scripts/sut-compose.sh` stacks them:
 
 ```bash
-docker compose -f docker-compose.test.yml up --build -d
+cd selenium-java
+./scripts/sut-compose.sh up --build -d db firebase-emulator backend frontend
+./scripts/seed-firebase-emulator.sh      # creates the login/profile accounts + accounts.local.csv
 ```
 
-To reuse prebuilt images (as CI does), set `BACKEND_IMAGE` / `FRONTEND_IMAGE` and add `--no-build`.
+To reuse prebuilt images (as CI does), set `BACKEND_IMAGE` / `FRONTEND_IMAGE` / `FIREBASE_EMULATOR_IMAGE` and add `--no-build`.
 If port 8000 is taken, set `BACKEND_PORT` (and run the tests with `-DSUT_URL=http://localhost:<port>`).
 
 | Service | URL |
 |---|---|
 | Backend (FastAPI) | http://localhost:8000 |
 | Frontend (Expo web) | http://localhost:5173 |
+| Firebase Auth emulator | http://localhost:9099 |
 
 ### 2 — Run the tests
 
@@ -70,7 +73,7 @@ does not run the real image-analysis suite and does not require Ollama. To test
 the full image-analysis flow, start the optional Ollama environment explicitly:
 
 ```bash
-docker compose -f docker-compose.test.yml -f docker-compose.ollama-test.yml up --build -d
+WITH_OLLAMA=true ./scripts/sut-compose.sh up --build -d db firebase-emulator ollama ollama-pull backend frontend
 ```
 
 Then run only the real image-analysis tests:
@@ -87,28 +90,22 @@ boxes, no-cloud images, and file validation cases.
 ### 3 — Tear down
 
 ```bash
-docker compose -f docker-compose.test.yml down --volumes
+./scripts/sut-compose.sh down --volumes
 ```
 
 ---
 
 ## Configuration
 
-Selenium account data is loaded from a CSV file instead of individual email/password properties.
+Selenium account data is loaded from a CSV file. With the Firebase emulator, `scripts/seed-firebase-emulator.sh` creates the accounts and writes `src/test/resources/accounts.local.csv` for you.
 
-The account file path is resolved in this priority order:
+To use another file (for example real Firebase accounts), the path is resolved in this order:
 
 1. Maven system property: `-DACCOUNTS_FILE=path/to/accounts.csv`.
 2. Environment variable: `ACCOUNTS_FILE`.
 3. `ACCOUNTS_FILE` in `src/test/resources/test.properties`.
 
-Create your local account file from the template:
-
-```bash
-cp src/test/resources/accounts.template.csv src/test/resources/accounts.local.csv
-```
-
-`accounts.local.csv` is ignored by Git and should contain the real accounts used by local or CI runs:
+The format is shown in `accounts.template.csv`; `accounts.local.csv` is ignored by Git:
 
 ```csv
 role,email,password,verified,description
@@ -201,10 +198,10 @@ WelcomePage back    = home.clickLogout();
 
 ## Test mode
 
-The backend is started with `TEST_MODE=true` and `DISABLE_WORKER=true` (see `docker-compose.test.yml`):
+The backend is started with `TEST_MODE=true` and `DISABLE_WORKER=true` (see `docker-compose.test.override.yml`):
 
 - **Any Bearer token** is accepted — API tests use a fixed token; Selenium guest-login tests use real Firebase anonymous tokens.
-- **Firebase is not initialised** — no service account key is needed.
+- **Firebase is not initialised in the backend**; the frontend signs in against the Firebase Auth emulator, so no real Firebase project is needed.
 - **Ollama worker is disabled** — analyses stay in `analyzing` state, making cancel tests deterministic.
 
 The optional real image-analysis suite has its own Ollama deployment flow in
@@ -214,4 +211,4 @@ the quick-start section above.
 
 ## CI
 
-`.github/workflows/ci-cd.yml` builds the backend and frontend images once (`docker-images` job), shares them as artifacts, and the `e2e-selenium-java` job loads them, starts `docker-compose.test.yml` with `--no-build`, and runs `mvn test`. Without the `E2E_ACCOUNTS_CSV_BASE64` secret (base64 of `accounts.local.csv`) only the API tests run.
+`.github/workflows/ci-cd.yml` runs: unit/integration tests → SonarCloud → Docker image build (`docker-images`) → system tests for every framework → publish images. `e2e-selenium-java` loads the built images, starts the layered stack with `scripts/sut-compose.sh up --no-build`, seeds the emulator accounts, and runs `mvn test`.

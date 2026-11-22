@@ -2,6 +2,7 @@ package epigijon.climanuvem.e2e.functional.pages;
 
 import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
+import org.openqa.selenium.StaleElementReferenceException;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.WebDriverException;
@@ -77,7 +78,11 @@ abstract class BasePage {
 
     /** True when any element matching {@code locator} is currently visible. */
     protected boolean isVisible(By locator) {
-        return driver.findElements(locator).stream().anyMatch(WebElement::isDisplayed);
+        try {
+            return driver.findElements(locator).stream().anyMatch(WebElement::isDisplayed);
+        } catch (StaleElementReferenceException e) {
+            return false;
+        }
     }
 
     /** Waits until the supplied condition returns true. */
