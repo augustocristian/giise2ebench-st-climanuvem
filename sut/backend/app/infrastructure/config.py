@@ -29,6 +29,8 @@ def _cors_origins() -> list[str]:
 @dataclass(frozen=True)
 class Settings:
     firebase_key_path: str | None
+    firebase_project_id: str
+    firebase_auth_emulator_host: str | None
     firebase_clock_skew_seconds: int
     database_url: str | None
     ollama_url: str | None
@@ -44,7 +46,9 @@ class Settings:
 @lru_cache
 def get_settings() -> Settings:
     return Settings(
-        firebase_key_path=os.getenv("FIREBASE_KEY_PATH"),
+        firebase_key_path=os.getenv("FIREBASE_KEY_PATH") or None,
+        firebase_project_id=os.getenv("FIREBASE_PROJECT_ID", "demo-climanuvem"),
+        firebase_auth_emulator_host=os.getenv("FIREBASE_AUTH_EMULATOR_HOST") or None,
         firebase_clock_skew_seconds=int(os.getenv("FIREBASE_CLOCK_SKEW_SECONDS", "5")),
         database_url=os.getenv("DATABASE_URL"),
         ollama_url=os.getenv("OLLAMA_URL"),
