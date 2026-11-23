@@ -141,7 +141,7 @@ When bumping by hand, respect the same lockstep sets (e.g. don't bump one `expo-
 
 `rebase-strategy: "disabled"` everywhere — stops auto-rebase from re-triggering CI (incl. `sonarcloud`) on every `main` push while a PR waits for review. `ci-cd.yml`'s `sonarcloud` job also guards `if: github.actor != 'dependabot[bot]'`, so individual Dependabot PRs skip it entirely — but that guard is keyed on the triggering actor, so a manually-combined "Combined dependency updates" branch (pushed by a human) still runs it.
 
-**Known gap**: `sut/sonar-project.properties` still has the *upstream* project's `sonar.projectKey`/`sonar.organization` (`uo289165_epi-climanuvem` / `uo289165-1`), so once a `SONAR_TOKEN` *is* configured, the scan will fail "Not authorized or project not found" until repointed at a project that token can access. (Currently the secret is unset, so the scan is skipped with a warning rather than failing.) Pre-existing, unrelated to dependency versions.
+**SonarCloud project**: `sut/sonar-project.properties` points at this repo's own project (`sonar.organization=augustocristian`, `sonar.projectKey=augustocristian_giise2ebench-st-climanuvem`), analysed by the CI job (`projectBaseDir: sut`) and not by SonarCloud's Automatic Analysis, which must stay disabled for the project (it conflicts with CI analysis and has no coverage). The scan needs the `SONAR_TOKEN` repository secret; without it the step is skipped with a `::warning`. Only the SUT is analysed, not the E2E test suites.
 
 ## Conventions For This Repo
 
