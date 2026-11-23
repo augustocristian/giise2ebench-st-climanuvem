@@ -30,6 +30,8 @@ updates:
     labels:
       - "backend"
       - "backend-ai"
+      - "sut"
+      - "python"
     groups:
       fastapi-pydantic:
         # fastapi pins a compatible starlette range, and pydantic v2 ships pydantic_core
@@ -84,6 +86,8 @@ updates:
       - "augustocristian"
     labels:
       - "frontend"
+      - "sut"
+      - "javascript"
     groups:
       expo-sdk:
         # The Expo SDK pins compatible versions of every expo-* package plus react,
@@ -177,6 +181,7 @@ updates:
     labels:
       - "backend"
       - "docker"
+      - "sut"
     ignore:
       # Keep the image on the Python version CI tests against; newer interpreters
       # lack prebuilt pydantic-core wheels and the build falls back to Rust.
@@ -195,10 +200,12 @@ updates:
     labels:
       - "frontend"
       - "docker"
+      - "sut"
 
   # --- E2E test suites (one per tool/language; none of them is part of the SUT) ---
   # Same conventions as above: groups only for real lockstep siblings, one PR per package
-  # otherwise. All share the `e2e-tests` label (create it in the repo before relying on it).
+  # otherwise. Labels: `e2e` + the tool (`selenium`, `cypress`, `playwright`, `puppeteer`) + the language
+  # (`java`, `javascript`, `csharp`, `python`); create them in the repo before relying on them.
 
   # Selenium + Java (Maven). Versions live in <properties> in pom.xml; Dependabot bumps the
   # property, so packages sharing one (junit-jupiter-*, retorch-*, surefire + surefire-report)
@@ -213,7 +220,9 @@ updates:
     assignees:
       - "augustocristian"
     labels:
-      - "e2e-tests"
+      - "e2e"
+      - "selenium"
+      - "java"
 
   # Cypress + JavaScript (npm).
   - package-ecosystem: "npm"
@@ -227,7 +236,9 @@ updates:
     assignees:
       - "augustocristian"
     labels:
-      - "e2e-tests"
+      - "e2e"
+      - "cypress"
+      - "javascript"
     groups:
       linting:
         # @eslint/js and eslint must share a major; eslint-plugin-cypress and globals are
@@ -249,7 +260,9 @@ updates:
     assignees:
       - "augustocristian"
     labels:
-      - "e2e-tests"
+      - "e2e"
+      - "playwright"
+      - "csharp"
     groups:
       nunit:
         # NUnit 4, its VSTest adapter and its Roslyn analyzers are released as a family
@@ -271,7 +284,9 @@ updates:
     assignees:
       - "augustocristian"
     labels:
-      - "e2e-tests"
+      - "e2e"
+      - "playwright"
+      - "csharp"
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
@@ -287,7 +302,9 @@ updates:
     assignees:
       - "augustocristian"
     labels:
-      - "e2e-tests"
+      - "e2e"
+      - "puppeteer"
+      - "python"
     groups:
       pytest:
         # pytest-asyncio declares the pytest range it supports, so a pytest bump alone can be
@@ -307,7 +324,9 @@ updates:
     assignees:
       - "augustocristian"
     labels:
-      - "e2e-tests"
+      - "e2e"
+      - "puppeteer"
+      - "javascript"
 
   # --- GitHub Actions workflows (always read from .github/workflows at the repo root,
   #     regardless of where the code they build lives) ---

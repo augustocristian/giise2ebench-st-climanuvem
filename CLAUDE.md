@@ -128,16 +128,20 @@ Note: `pydantic`/`pydantic_core` also once landed out of sync despite matching t
 
 When bumping by hand, respect the same lockstep sets (e.g. don't bump one `expo-*` package alone; don't bump `fastapi` without checking `starlette`).
 
-**Commit messages / labels**: no block sets `include: "scope"` (it would append a redundant `(deps)`/`(deps-dev)` suffix on top of the already-descriptive `prefix`). `npm` and `pip` both set `prefix-development` (`chore(frontend dev-deps)` / `chore(backend dev-deps)`) since both manifests expose a real dev/prod split Dependabot can see (`package.json` deps/devDeps; Poetry's `[project.dependencies]` vs. optional `test`/`docs` groups — only possible for `pip` since the Poetry migration). Every block sets `assignees: [augustocristian]` and labels (must pre-exist in the repo: `backend`, `backend-ai`, `frontend`, `docker`, `actions`, `e2e-tests` — Dependabot won't create them):
+**Commit messages / labels**: no block sets `include: "scope"` (it would append a redundant `(deps)`/`(deps-dev)` suffix on top of the already-descriptive `prefix`). `npm` and `pip` both set `prefix-development` (`chore(frontend dev-deps)` / `chore(backend dev-deps)`) since both manifests expose a real dev/prod split Dependabot can see (`package.json` deps/devDeps; Poetry's `[project.dependencies]` vs. optional `test`/`docs` groups — only possible for `pip` since the Poetry migration). Every block sets `assignees: [augustocristian]` and labels (must pre-exist in the repo — Dependabot won't create them): `backend`, `backend-ai`, `frontend`, `docker`, `actions`, plus the scope labels `sut` / `e2e`, one per tool (`selenium`, `cypress`, `playwright`, `puppeteer`) and one per language (`java`, `javascript`, `csharp`, `python`):
 
 | Block | Labels |
 | --- | --- |
-| `pip` | `backend`, `backend-ai` |
-| `npm` | `frontend` |
-| `docker` (backend) | `backend`, `docker` |
-| `docker` (frontend) | `frontend`, `docker` |
+| `pip` (`/sut/backend`) | `backend`, `backend-ai`, `sut`, `python` |
+| `npm` (`/sut/frontend`) | `frontend`, `sut`, `javascript` |
+| `docker` (backend) | `backend`, `docker`, `sut` |
+| `docker` (frontend) | `frontend`, `docker`, `sut` |
 | `github-actions` | `actions` |
-| test suites (`maven`, `npm`, `nuget`, `dotnet-sdk`, `pip`) | `e2e-tests` |
+| `maven` (`/selenium-java`) | `e2e`, `selenium`, `java` |
+| `npm` (`/cypress-js`) | `e2e`, `cypress`, `javascript` |
+| `nuget` + `dotnet-sdk` (`/playwright-csharp`) | `e2e`, `playwright`, `csharp` |
+| `pip` (`/puppeteer-python`) | `e2e`, `puppeteer`, `python` |
+| `npm` (`/puppeteer-python/bridge`) | `e2e`, `puppeteer`, `javascript` |
 
 `rebase-strategy: "disabled"` everywhere — stops auto-rebase from re-triggering CI (incl. `sonarcloud`) on every `main` push while a PR waits for review. `ci-cd.yml`'s `sonarcloud` job also guards `if: github.actor != 'dependabot[bot]'`, so individual Dependabot PRs skip it entirely — but that guard is keyed on the triggering actor, so a manually-combined "Combined dependency updates" branch (pushed by a human) still runs it.
 
