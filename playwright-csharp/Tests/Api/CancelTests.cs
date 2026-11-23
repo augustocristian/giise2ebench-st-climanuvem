@@ -1,53 +1,55 @@
-using PlaywrightStClimanuvem.Common;
-
 namespace PlaywrightStClimanuvem.Tests.Api;
 
 /// <summary>
-/// API tests for the cancellation endpoint, mirroring selenium-java's
-/// <c>TestApiCancel</c>:
-///   PATCH /analysis/{id}/cancel — cancel an in-progress analysis
-/// Runs with DISABLE_WORKER=true so uploaded analyses stay in 'analyzing'
-/// status, making cancellation deterministic without Ollama.
+/// PATCH /api/v1/analyses/{id} with {"status":"cancelled"}. Runs with DISABLE_WORKER=true so
+/// analyses stay 'analyzing', which makes cancellation deterministic without Ollama.
 /// </summary>
 [TestFixture]
 public class CancelTests : ApiTestBase
 {
-    private const int NonExistentId = int.MaxValue; // mirrors the Java fixture
-
-    [Test]
-    [Description("PATCH /analysis/{id}/cancel returns HTTP 200 for an analysis in 'analyzing' status")]
-    public async Task CancelAnalysisReturns200()
+    [Test(Description = "Cancelling an 'analyzing' analysis returns 200 and the updated object")]
+    public async Task CancelReturnsUpdatedAnalysis()
     {
-        var analysisId = await CreateAnalysisAsync("Cancel Me City");
-        var status = await PatchStatusAuthAsync(AnalysisUrl($"/{analysisId}/cancel"));
-        Assert.That(status, Is.EqualTo(200), "Cancelling an 'analyzing' task must return HTTP 200");
+        var id = await CreateAnalysisAsync("Cancel Me City");
+
+        var response = await PatchStatusAsync(AnalysisUrl(id), "cancelled");
+
+        Assert.That(response.Status, Is.EqualTo(200), response.Text);
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(response.Json.GetProperty("id").GetInt32(), Is.EqualTo(id));
+            Assert.That(response.Json.GetProperty("status").GetString(), Is.EqualTo("cancelled"));
+        }
     }
 
-    [Test]
-    [Description("PATCH /analysis/{id}/cancel returns HTTP 400 when the analysis is already cancelled")]
-    public async Task CancelAlreadyCancelledReturns400()
+    [Test(Description = "Cancelling an already cancelled analysis returns 409 ANALYSIS_NOT_CANCELLABLE")]
+    public async Task CancelTwiceReturns409()
     {
-        var analysisId = await CreateAnalysisAsync("Double Cancel City");
-        await PatchStatusAuthAsync(AnalysisUrl($"/{analysisId}/cancel"));
+        var id = await CreateAnalysisAsync("Double Cancel City");
+        await PatchStatusAsync(AnalysisUrl(id), "cancelled");
 
-        var secondStatus = await PatchStatusAuthAsync(AnalysisUrl($"/{analysisId}/cancel"));
-        Assert.That(secondStatus, Is.EqualTo(400), "Cancelling an already-cancelled analysis must return HTTP 400");
+        var second = await PatchStatusAsync(AnalysisUrl(id), "cancelled");
+
+        AssertProblem(second, 409, "ANALYSIS_NOT_CANCELLABLE");
     }
 
-    [Test]
-    [Description("PATCH /analysis/{id}/cancel returns HTTP 404 for a non-existent analysis")]
-    public async Task CancelNonExistentAnalysisReturns404()
+    [Test(Description = "Cancelling a non-existent analysis returns 404 ANALYSIS_NOT_FOUND")]
+    public async Task CancelUnknownReturns404()
     {
-        var status = await PatchStatusAuthAsync(AnalysisUrl($"/{NonExistentId}/cancel"));
-        Assert.That(status, Is.EqualTo(404), "Cancelling a non-existent analysis must return HTTP 404");
+        var response = await PatchStatusAsync(AnalysisUrl(NonExistentId), "cancelled");
+
+        AssertProblem(response, 404, "ANALYSIS_NOT_FOUND");
     }
 
-    [Test]
-    [Description("PATCH /analysis/{id}/cancel without Authorization header returns HTTP 403")]
-    public async Task CancelRequiresAuth()
+    [Test(Description = "A status other than 'cancelled' returns 422 and leaves the analysis untouched")]
+    public async Task PatchWithOtherStatusReturns422()
     {
-        var analysisId = await CreateAnalysisAsync("Auth Check City");
-        var status = await GetStatusAsync(AnalysisUrl($"/{analysisId}/cancel"));
-        Assert.That(status, Is.EqualTo(403), "Cancel endpoint must return 403 when no token is provided");
+        var id = await CreateAnalysisAsync("Bad Status City");
+
+        var response = await PatchStatusAsync(AnalysisUrl(id), "completed");
+        var stored = await GetAsync(AnalysisUrl(id));
+
+        Assert.That(response.Status, Is.EqualTo(422));
+        Assert.That(stored.Json.GetProperty("status").GetString(), Is.EqualTo("analyzing"));
     }
 }

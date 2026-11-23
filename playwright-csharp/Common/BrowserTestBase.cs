@@ -7,27 +7,17 @@ using PlaywrightStClimanuvem.Pages;
 namespace PlaywrightStClimanuvem.Common;
 
 /// <summary>
-/// Base class for the ClimaNuvem browser system tests. Mirrors
-/// selenium-java's <c>BaseLoggedClass</c>, built on top of
-/// <see cref="PageTest"/> — Playwright's own NUnit integration already
-/// gives every test a fresh, isolated <see cref="PageTest.Page"/> (backed
-/// by a fresh <see cref="IBrowserContext"/>) with no manual lifecycle code
-/// needed, the direct equivalent of Selenium's fresh-ChromeDriver-per-test
-/// plus <c>--incognito</c>.
-///
-/// Entry points for test methods:
-///   <see cref="OnWelcomePageAsync"/> — navigates to the frontend root and
-///     returns a <see cref="WelcomePage"/>, which waits internally until
-///     the page is ready.
-///   <see cref="LoginAsGuestAsync"/> — convenience shortcut that clicks
-///     "Continuar como invitado" and returns a <see cref="HomePage"/>.
-///
-/// Set <c>CI=true</c> for headless Chromium in CI (see
-/// <see cref="LaunchOptionsAsync"/>).
+/// Base class for the ClimaNuvem browser system tests, built on
+/// <see cref="PageTest"/>: every test gets a fresh, isolated
+/// <see cref="PageTest.Page"/> backed by its own browser context.
+/// Hosts the single timeout configuration and the flows shared by several
+/// test classes (open Welcome, log in, open a profile). Set <c>CI=true</c>
+/// for headless Chromium (see <see cref="LaunchOptionsAsync"/>).
 /// </summary>
 public abstract class BrowserTestBase : PageTest
 {
-    protected static string FrontendUrl => TestSettings.FrontendUrl;
+    /// <summary>Single timeout for actions, navigation and web-first assertions.</summary>
+    private const float DefaultTimeoutMs = 30_000;
 
     private static TestAccounts? _testAccounts;
 
@@ -41,29 +31,39 @@ public abstract class BrowserTestBase : PageTest
         return options;
     }
 
-    protected async Task<WelcomePage> OnWelcomePageAsync()
+    [OneTimeSetUp]
+    public void ConfigureExpectTimeout() => Assertions.SetDefaultExpectTimeout(DefaultTimeoutMs);
+
+    [SetUp]
+    public void ConfigureActionTimeout() => Context.SetDefaultTimeout(DefaultTimeoutMs);
+
+    protected async Task<WelcomePage> OpenWelcomePageAsync()
     {
-        await Page.GotoAsync(FrontendUrl);
-        return await WelcomePage.CreateAsync(Page);
+        await Page.GotoAsync(TestSettings.FrontendUrl);
+        return await BasePage.WhenReadyAsync(new WelcomePage(Page));
     }
 
-    /// <summary>
-    /// Clicks "Continuar como invitado", which triggers Firebase anonymous
-    /// auth, and waits for the Home screen to mount.
-    /// </summary>
-    protected async Task<HomePage> LoginAsGuestAsync()
+    protected async Task<LoginPage> OpenLoginPageAsync() =>
+        await (await OpenWelcomePageAsync()).OpenLoginAsync();
+
+    protected async Task<HomePage> LoginAsGuestAsync() =>
+        await (await OpenWelcomePageAsync()).ContinueAsGuestAsync();
+
+    protected async Task<HomePage> LoginAsync(TestAccount account) =>
+        await (await OpenLoginPageAsync()).LoginAsync(account.Email, account.Password);
+
+    protected async Task<ProfilePage> OpenGuestProfileAsync()
     {
-        var welcome = await OnWelcomePageAsync();
-        return await welcome.ClickAnonymousLoginAsync();
+        var profile = await (await LoginAsGuestAsync()).OpenProfileAsync();
+        await profile.ExpectGuestViewAsync();
+        return profile;
     }
 
-    protected async Task<HomePage> LoginAsProfileUserAsync()
+    protected async Task<ProfilePage> OpenAuthenticatedProfileAsync(TestAccount account)
     {
-        var account = TestAccountsData.ProfileAccount();
-        var welcome = await OnWelcomePageAsync();
-        var login = await welcome.ClickLoginButtonAsync();
-        await login.LoginAsync(account.Email, account.Password);
-        return await login.WaitForHomeAsync();
+        var profile = await (await LoginAsync(account)).OpenProfileAsync();
+        await profile.ExpectAuthenticatedViewAsync();
+        return profile;
     }
 
     /// <summary>

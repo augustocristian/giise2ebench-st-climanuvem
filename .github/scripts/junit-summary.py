@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prints a GitHub-flavoured Markdown summary of JUnit XML reports.
+"""Prints a GitHub-flavoured Markdown summary of JUnit XML and Visual Studio TRX reports.
 
 Usage: junit-summary.py "<title>" <glob> [<glob> ...]
 Append the output to $GITHUB_STEP_SUMMARY.
@@ -19,6 +19,39 @@ def suites_in(root):
     if local_name(root.tag) == "testsuite":
         return [root]
     return [el for el in root if local_name(el.tag) == "testsuite"]
+
+
+def parse_duration(text):
+    try:
+        hours, minutes, seconds = (text or "0:0:0").split(":")
+        return int(hours) * 3600 + int(minutes) * 60 + float(seconds)
+    except ValueError:
+        return 0.0
+
+
+def suites_from_trx(root):
+    """Groups TRX results by test class; yields (name, passed, failed, skipped, seconds, failures)."""
+    classes = {}
+    for method in (e for e in root.iter() if local_name(e.tag) == "UnitTest"):
+        for child in method:
+            if local_name(child.tag) == "TestMethod":
+                classes[method.get("id")] = child.get("className", "").split(",")[0]
+    groups = {}
+    for result in (e for e in root.iter() if local_name(e.tag) == "UnitTestResult"):
+        name = classes.get(result.get("testId"), "tests")
+        passed, failed, skipped, seconds, failures = groups.setdefault(name, [0, 0, 0, 0.0, []])
+        outcome = result.get("outcome")
+        groups[name][3] += parse_duration(result.get("duration"))
+        if outcome == "Passed":
+            groups[name][0] += 1
+        elif outcome == "Failed":
+            groups[name][1] += 1
+            message = next((m.text or "" for m in result.iter() if local_name(m.tag) == "Message"), "")
+            first_line = message.strip().splitlines()[0][:300] if message.strip() else ""
+            failures.append((name, result.get("testName") or "test", first_line))
+        else:
+            groups[name][2] += 1
+    return [(name, g[0], g[1], g[2], g[3]) for name, g in groups.items()]
 
 
 def summarize_suite(suite, failures):
@@ -47,6 +80,12 @@ def main():
         try:
             root = ET.parse(path).getroot()
         except ET.ParseError:
+            continue
+        if local_name(root.tag) == "TestRun":
+            for name, passed, failed, skipped, seconds in suites_from_trx(root):
+                rows.append((name, passed, failed, skipped, seconds))
+                for i, value in enumerate((passed, failed, skipped, seconds)):
+                    totals[i] += value
             continue
         for suite in suites_in(root):
             passed, failed, skipped, seconds = summarize_suite(suite, failures)

@@ -1,36 +1,37 @@
-using PlaywrightStClimanuvem.Common;
-
 namespace PlaywrightStClimanuvem.Tests.Api;
 
-/// <summary>
-/// API tests for the public health-check endpoints that require no
-/// authentication, mirroring selenium-java's <c>TestApiPing</c>:
-///   GET /ping  — liveness probe
-///   GET /      — service status response
-/// </summary>
+/// <summary>Public health-check endpoints (no authentication) and the removed legacy routes.</summary>
 [TestFixture]
 public class PingTests : ApiTestBase
 {
-    [Test]
-    [Description("GET /ping returns HTTP 200 with ping:pong payload")]
-    public async Task PingEndpointReturnsPingPong()
+    [Test(Description = "GET /api/v1/ping returns 200 with {\"ping\":\"pong\"}")]
+    public async Task PingReturnsPong()
     {
-        Assert.That(await GetStatusAsync(RootUrl("/ping")), Is.EqualTo(200), "Expected HTTP 200 from /ping");
+        var response = await GetAsync(ApiUrl("/ping"), auth: false);
 
-        var body = await GetJsonAsync(RootUrl("/ping"));
-        Assert.That(body.GetProperty("ping").GetString(), Is.EqualTo("pong"), "'ping' field must equal 'pong'");
+        Assert.That(response.Status, Is.EqualTo(200));
+        Assert.That(response.Json.GetProperty("ping").GetString(), Is.EqualTo("pong"));
     }
 
-    [Test]
-    [Description("GET / returns HTTP 200 with service status payload")]
-    public async Task RootEndpointReturnsServiceStatus()
+    [TestCase("/", TestName = "RootReturnsServiceStatus_WithTrailingSlash")]
+    [TestCase("", TestName = "RootReturnsServiceStatus_WithoutTrailingSlash")]
+    public async Task RootReturnsServiceStatus(string path)
     {
-        Assert.That(await GetStatusAsync(RootUrl("/")), Is.EqualTo(200), "Expected HTTP 200 from /");
+        var response = await GetAsync(ApiUrl(path), auth: false);
 
-        var body = await GetJsonAsync(RootUrl("/"));
-        Assert.That(
-            body.GetProperty("service").GetString(), Is.EqualTo("ClimaNuvem API"),
-            "'service' field must identify the API");
-        Assert.That(body.GetProperty("status").GetString(), Is.EqualTo("ok"), "'status' field must equal 'ok'");
+        Assert.That(response.Status, Is.EqualTo(200));
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(response.Json.GetProperty("service").GetString(), Is.EqualTo("ClimaNuvem API"));
+            Assert.That(response.Json.GetProperty("status").GetString(), Is.EqualTo("ok"));
+        }
+    }
+
+    [Test(Description = "The unversioned GET /ping route no longer exists")]
+    public async Task LegacyPingReturns404()
+    {
+        var response = await GetAsync("/ping", auth: false);
+
+        Assert.That(response.Status, Is.EqualTo(404));
     }
 }

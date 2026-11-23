@@ -62,7 +62,7 @@ export function AuthView({ controller }: AuthViewProps) {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
       style={styles.container}
     >
-      <AppHeader />
+      <AppHeader backTestID="login-back-button" />
       
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <View style={styles.headerSection}>
@@ -73,6 +73,7 @@ export function AuthView({ controller }: AuthViewProps) {
         <View style={styles.formContainer}>
           <AuthInput
             icon="mail-outline"
+            testID="login-email-input"
             placeholder={t('auth.email')}
             value={email}
             onChangeText={setEmail}
@@ -86,6 +87,8 @@ export function AuthView({ controller }: AuthViewProps) {
           <AuthInput
             ref={passwordInputRef}
             icon="lock-closed-outline"
+            testID="login-password-input"
+            eyeTestID="login-password-toggle"
             placeholder={t('auth.password')}
             value={password}
             onChangeText={setPassword}
@@ -101,6 +104,7 @@ export function AuthView({ controller }: AuthViewProps) {
             title={t('auth.login')} 
             onPress={handleLogin} 
             loading={loading}
+            testID="login-submit-button"
           />
 
           <AuthButton 
@@ -108,6 +112,7 @@ export function AuthView({ controller }: AuthViewProps) {
             onPress={promptAsync} 
             variant="google"
             icon="logo-google"
+            testID="login-google-button"
             disabled={loading}
           />
 
@@ -118,18 +123,20 @@ export function AuthView({ controller }: AuthViewProps) {
               variant="outline"
               style={styles.resetButton}
               textStyle={styles.resetText}
+              testID="login-forgot-password-link"
               disabled={loading}
             />
 
             <View style={styles.registerLink}>
               <Text style={styles.noAccountText}>{t('auth.noAccount')}</Text>
-              <Text style={styles.linkText} onPress={handleNavigateToRegister}>{t('auth.register')}</Text>
+              <Text style={styles.linkText} testID="login-register-link" onPress={handleNavigateToRegister}>{t('auth.register')}</Text>
             </View>
           </View>
         </View>
       </ScrollView>
 
       <StatusModal 
+        testID="login-feedback"
         visible={modalVisible}
         type={modalConfig.type}
         title={modalConfig.title}

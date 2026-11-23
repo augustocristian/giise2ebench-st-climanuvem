@@ -19,6 +19,9 @@ public static class TestSettings
     public static bool RealOllamaTests => GetBool("REAL_OLLAMA_TESTS", false);
     public static bool Ci => GetBool("CI", false);
 
+    /// <summary>True when the Firebase project enforces the uppercase + number password policy (the Auth emulator does not).</summary>
+    public static bool PasswordPolicyEnforced => GetBool("PASSWORD_POLICY_ENFORCED", false);
+
     private static string GetString(string key, string fallback) =>
         Environment.GetEnvironmentVariable(key) is { Length: > 0 } value ? value : fallback;
 

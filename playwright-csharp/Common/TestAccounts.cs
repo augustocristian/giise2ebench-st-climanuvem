@@ -77,7 +77,6 @@ public sealed class TestAccounts
     public IReadOnlyList<TestAccount> LoginAccounts() => Required(RoleLoginUser);
     public IReadOnlyList<TestAccount> ProfileAccounts() => Required(RoleProfileUser);
     public TestAccount LoginAccount() => RequiredSingle(RoleLoginUser);
-    public TestAccount ProfileAccount() => RequiredSingle(RoleProfileUser);
     public TestAccount UnknownAccount() => RequiredSingle(RoleUnknownUser);
 
     private static TestAccount ParseLine(string line, string accountsFile)

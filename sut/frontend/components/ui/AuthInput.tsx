@@ -9,10 +9,11 @@ interface AuthInputProps extends TextInputProps {
   showEyeIcon?: boolean;
   onEyePress?: () => void;
   secureTextEntry?: boolean;
+  eyeTestID?: string;
 }
 
 export const AuthInput = React.forwardRef<TextInput, AuthInputProps>(
-  ({ icon, showEyeIcon, onEyePress, secureTextEntry, style, ...props }, ref) => {
+  ({ icon, showEyeIcon, onEyePress, eyeTestID, secureTextEntry, style, ...props }, ref) => {
     const { theme } = useTheme();
     const styles = getAuthInputStyles(theme);
 
@@ -27,7 +28,7 @@ export const AuthInput = React.forwardRef<TextInput, AuthInputProps>(
           {...props}
         />
         {showEyeIcon && (
-          <TouchableOpacity onPress={onEyePress} style={styles.eyeIcon}>
+          <TouchableOpacity onPress={onEyePress} style={styles.eyeIcon} testID={eyeTestID}>
             <Ionicons name={secureTextEntry ? 'eye' : 'eye-off'} size={24} color={theme.colors.textSecondary} />
           </TouchableOpacity>
         )}

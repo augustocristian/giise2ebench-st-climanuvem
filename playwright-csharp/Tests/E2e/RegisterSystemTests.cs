@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using PlaywrightStClimanuvem.Common;
 using PlaywrightStClimanuvem.Pages;
 
@@ -10,14 +11,22 @@ namespace PlaywrightStClimanuvem.Tests.E2e;
 [TestFixture]
 public class RegisterSystemTests : BrowserTestBase
 {
-    private const string ValidUsername20 = "usuarioPrueba1234567";
+    private const string ValidUsername20 = "TestUser123456789012";
     private const string Username2 = "ab";
-    private const string Username21 = "usuarioPrueba12345678";
+    private const string Username21 = "TestUser1234567890123";
     private const string ValidPassword = "Test12";
     private const string Password5 = "Test1";
     private const string PasswordNoUppercase = "test12";
     private const string PasswordNoNumber = "Testaa";
     private const string DifferentConfirmPassword = "Other1";
+
+    private const string ErrorTitle = "Error";
+    private const string UsernameLengthMessage = "Username must be between 3 and 20 characters.";
+    private const string InvalidEmailMessage = "Please enter a valid email address.";
+    private const string PasswordLengthMessage = "Password must be at least 6 characters.";
+    private const string PasswordsDoNotMatchMessage = "Passwords do not match.";
+    private const string EmailInUseMessage = "This email is already in use by another account.";
+    private static readonly Regex WeakPasswordMessage = new("uppercase letter and one number|too weak");
 
     [Test]
     [Description("BASE - Valid account data creates the account")]
@@ -29,11 +38,8 @@ public class RegisterSystemTests : BrowserTestBase
         {
             var registerPage = await OpenRegisterPageAsync();
             await registerPage.RegisterAsync(ValidUsername20, email, ValidPassword, ValidPassword);
-            await registerPage.WaitForVerificationDialogAsync();
 
-            Assert.That(
-                await registerPage.IsVerificationDialogVisibleAsync(), Is.True,
-                "Valid registration data must create the account and show email-verification guidance");
+            await registerPage.ExpectFeedbackAsync("Successful registration", "verification email");
         }
         finally
         {
@@ -43,63 +49,61 @@ public class RegisterSystemTests : BrowserTestBase
 
     [Test]
     [Description("2 - Username and email validation errors are rejected")]
-    public void UsernameAndEmailValidationErrorsAreRejected()
+    public async Task UsernameAndEmailValidationErrorsAreRejected()
     {
         var existingAccount = TestAccountsData.LoginAccount();
 
-        Assert.Multiple(async () =>
-        {
-            await AssertRegistrationRejectedAsync(
-                "", UniqueRegisterEmail(), ValidPassword, ValidPassword, "Empty username must be rejected");
-            await AssertRegistrationRejectedAsync(
-                Username2, UniqueRegisterEmail(), ValidPassword, ValidPassword, "Two-character username must be rejected");
-            await AssertRegistrationRejectedAsync(
-                Username21, UniqueRegisterEmail(), ValidPassword, ValidPassword,
-                "Twenty-one-character username must be rejected");
-            await AssertRegistrationRejectedAsync(
-                ValidUsername20, "correo-invalido", ValidPassword, ValidPassword, "Invalid email must be rejected");
-            await AssertRegistrationRejectedAsync(
-                ValidUsername20, existingAccount.Email, ValidPassword, ValidPassword,
-                "Email already in use must be rejected");
-        });
+        await AssertRegistrationRejectedAsync("", UniqueRegisterEmail(), ValidPassword, ValidPassword, UsernameLengthMessage);
+        await AssertRegistrationRejectedAsync(Username2, UniqueRegisterEmail(), ValidPassword, ValidPassword, UsernameLengthMessage);
+        await AssertRegistrationRejectedAsync(ValidUsername20, "invalid-email", ValidPassword, ValidPassword, InvalidEmailMessage);
+        await AssertRegistrationRejectedAsync(ValidUsername20, existingAccount.Email, ValidPassword, ValidPassword, EmailInUseMessage);
     }
 
     [Test]
     [Description("3 - Password and confirmation validation errors are rejected")]
-    public void PasswordAndConfirmationValidationErrorsAreRejected()
+    public async Task PasswordAndConfirmationValidationErrorsAreRejected()
     {
-        Assert.Multiple(async () =>
-        {
-            await AssertRegistrationRejectedAsync(
-                ValidUsername20, UniqueRegisterEmail(), "", "", "Empty password must be rejected");
-            await AssertRegistrationRejectedAsync(
-                ValidUsername20, UniqueRegisterEmail(), Password5, Password5, "Five-character password must be rejected");
-            await AssertRegistrationRejectedAsync(
-                ValidUsername20, UniqueRegisterEmail(), PasswordNoUppercase, PasswordNoUppercase,
-                "Password without uppercase letters must be rejected");
-            await AssertRegistrationRejectedAsync(
-                ValidUsername20, UniqueRegisterEmail(), PasswordNoNumber, PasswordNoNumber,
-                "Password without numbers must be rejected");
-            await AssertRegistrationRejectedAsync(
-                ValidUsername20, UniqueRegisterEmail(), ValidPassword, DifferentConfirmPassword,
-                "Non-matching password confirmation must be rejected");
-        });
+        await AssertRegistrationRejectedAsync(ValidUsername20, UniqueRegisterEmail(), "", "", PasswordLengthMessage);
+        await AssertRegistrationRejectedAsync(ValidUsername20, UniqueRegisterEmail(), Password5, Password5, PasswordLengthMessage);
+        await AssertRegistrationRejectedAsync(
+            ValidUsername20, UniqueRegisterEmail(), ValidPassword, DifferentConfirmPassword, PasswordsDoNotMatchMessage);
     }
 
-    private async Task<RegisterPage> OpenRegisterPageAsync()
+    [Test]
+    [Description("2b - The username field caps its value at 20 characters")]
+    public async Task UsernameFieldCapsLengthAtTwentyCharacters()
     {
-        var welcome = await OnWelcomePageAsync();
-        var login = await welcome.ClickLoginButtonAsync();
-        return await login.ClickRegisterLinkAsync();
+        var registerPage = await OpenRegisterPageAsync();
+        await registerPage.ExpectUsernameValueAfterTypingAsync(Username21, ValidUsername20);
     }
+
+    [Test]
+    [Description("3b - Passwords without an uppercase letter or a number are rejected")]
+    public async Task PasswordPolicyViolationsAreRejected()
+    {
+        Assume.That(TestSettings.PasswordPolicyEnforced,
+            "The Firebase Auth emulator does not enforce password policies; set PASSWORD_POLICY_ENFORCED=true against a real project.");
+
+        await AssertRegistrationRejectedAsync(
+            ValidUsername20, UniqueRegisterEmail(), PasswordNoUppercase, PasswordNoUppercase, WeakPasswordMessage);
+        await AssertRegistrationRejectedAsync(
+            ValidUsername20, UniqueRegisterEmail(), PasswordNoNumber, PasswordNoNumber, WeakPasswordMessage);
+    }
+
+    private async Task<RegisterPage> OpenRegisterPageAsync() =>
+        await (await OpenLoginPageAsync()).OpenRegisterAsync();
+
+    private Task AssertRegistrationRejectedAsync(
+        string username, string email, string password, string confirmPassword, string expectedMessage) =>
+        AssertRegistrationRejectedAsync(
+            username, email, password, confirmPassword, new Regex(Regex.Escape(expectedMessage)));
 
     private async Task AssertRegistrationRejectedAsync(
-        string username, string email, string password, string confirmPassword, string message)
+        string username, string email, string password, string confirmPassword, Regex expectedMessage)
     {
         var registerPage = await OpenRegisterPageAsync();
         await registerPage.RegisterAsync(username, email, password, confirmPassword);
-        await registerPage.WaitForRegisterFailureAsync();
-        Assert.That(await registerPage.HasRegisterErrorOrValidationAsync(), Is.True, message);
+        await registerPage.ExpectFeedbackAsync(ErrorTitle, expectedMessage);
     }
 
     private static string UniqueRegisterEmail() =>

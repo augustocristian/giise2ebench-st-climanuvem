@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using PlaywrightStClimanuvem.Common;
 using PlaywrightStClimanuvem.Pages;
 
@@ -6,14 +7,16 @@ namespace PlaywrightStClimanuvem.Tests.E2e;
 /// <summary>
 /// Browser system tests for the login functionality, derived from the
 /// same Base Choice table as selenium-java's <c>TestLoginSystem</c>.
-/// <c>[TestCaseSource]</c> is NUnit's direct equivalent of JUnit's
-/// <c>@ParameterizedTest</c>/<c>@MethodSource</c> — each account row
-/// becomes its own test instance with its own fresh browser context,
-/// courtesy of <see cref="BrowserTestBase"/>'s <c>PageTest</c> base.
+/// Each account row becomes its own test instance with a fresh browser context.
 /// </summary>
 [TestFixture]
 public class LoginSystemTests : BrowserTestBase
 {
+    private const string ErrorTitle = "Error";
+    private const string InvalidEmailMessage = "Please enter a valid email address.";
+    /// <summary>Real Firebase answers with a generic message; the emulator is more specific (wrong password / unknown email).</summary>
+    private static readonly Regex BadCredentialsMessage = new("Incorrect credentials|password is incorrect|No account exists|Authentication error");
+
     private static IEnumerable<TestAccount> LoginAccountsSource() => TestAccountsData.LoginAccounts();
 
     [Test]
@@ -21,37 +24,25 @@ public class LoginSystemTests : BrowserTestBase
     public async Task GuestLoginReachesHome()
     {
         var home = await LoginAsGuestAsync();
-        Assert.That(await home.IsWelcomeMessageVisibleAsync(), Is.True, "Guest login must reach the Home screen");
+        await home.ExpectWelcomeVisibleAsync();
     }
 
     [Test]
     [Description("BASE - Google login provider flow is available")]
     public async Task GoogleLoginProviderFlowIsAvailable()
     {
-        var welcome = await OnWelcomePageAsync();
-        var login = await welcome.ClickLoginButtonAsync();
+        var login = await OpenLoginPageAsync();
+        await login.ExpectGoogleButtonVisibleAsync();
 
-        Assert.Multiple(async () =>
-        {
-            Assert.That(await login.IsGoogleLoginPresentAsync(), Is.True, "Google login option must be available");
-            Assert.That(
-                await login.ClickGoogleLoginStartsProviderAsync(), Is.True,
-                "Clicking Google login must start the provider flow");
-        });
+        Assert.That(await login.StartGoogleLoginAsync(), Is.True, "Clicking Google login must start the provider flow");
     }
 
     [TestCaseSource(nameof(LoginAccountsSource))]
     [Description("2 - Existing email with correct password reaches Home")]
     public async Task ExistingEmailWithCorrectPasswordReachesHome(TestAccount account)
     {
-        var welcome = await OnWelcomePageAsync();
-        var login = await welcome.ClickLoginButtonAsync();
-        await login.LoginAsync(account.Email, account.Password);
-        var home = await login.WaitForHomeAsync();
-
-        Assert.That(
-            await home.IsWelcomeMessageVisibleAsync(), Is.True,
-            "Existing email with correct password must reach the Home screen");
+        var home = await LoginAsync(account);
+        await home.ExpectWelcomeVisibleAsync();
     }
 
     [TestCaseSource(nameof(LoginAccountsSource))]
@@ -59,35 +50,25 @@ public class LoginSystemTests : BrowserTestBase
     public async Task InvalidEmailPasswordLoginAttemptsAreRejected(TestAccount account)
     {
         var unknown = TestAccountsData.UnknownAccount();
-        var welcome = await OnWelcomePageAsync();
-        var login = await welcome.ClickLoginButtonAsync();
+        var login = await OpenLoginPageAsync();
 
-        Assert.Multiple(async () =>
-        {
-            await AssertLoginRejectedAsync(
-                login, account.Email, "",
-                "Existing email with empty password must remain on Login and show validation or an error");
-            await AssertLoginRejectedAsync(
-                login, unknown.Email, unknown.Password,
-                "Unknown email with empty password must remain on Login and show validation or an error");
-            await AssertLoginRejectedAsync(login, "", "", "Empty credentials must remain on Login and show validation");
-            await AssertLoginRejectedAsync(
-                login, account.Email, unknown.Password,
-                "Existing email with incorrect password must remain on Login and show an error");
-        });
+        // Existing email with empty password
+        await AssertRejectedAsync(login, account.Email, "", BadCredentialsMessage);
+        // Unknown email
+        await AssertRejectedAsync(login, unknown.Email, unknown.Password, BadCredentialsMessage);
+        // Empty credentials
+        await AssertRejectedAsync(login, "", "", InvalidEmailMessage);
+        // Existing email with incorrect password
+        await AssertRejectedAsync(login, account.Email, unknown.Password, BadCredentialsMessage);
     }
 
-    private static async Task AssertLoginRejectedAsync(LoginPage login, string email, string password, string message)
+    private static async Task AssertRejectedAsync(LoginPage login, string email, string password, Regex expectedMessage)
     {
-        await login.LoginAsync(email, password);
-        try
-        {
-            await login.WaitForLoginFailureAsync();
-            Assert.That(await login.HasLoginErrorOrValidationAsync(), Is.True, message);
-        }
-        finally
-        {
-            await login.CloseLoginFeedbackIfPresentAsync();
-        }
+        await login.SubmitCredentialsAsync(email, password);
+        await login.ExpectFeedbackAsync(ErrorTitle, expectedMessage);
+        await login.DismissFeedbackAsync();
     }
+
+    private static Task AssertRejectedAsync(LoginPage login, string email, string password, string expectedMessage) =>
+        AssertRejectedAsync(login, email, password, new Regex(Regex.Escape(expectedMessage)));
 }

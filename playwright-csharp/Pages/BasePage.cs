@@ -1,127 +1,76 @@
 using System.Text.RegularExpressions;
 using Microsoft.Playwright;
+using PlaywrightStClimanuvem.Common;
+using static Microsoft.Playwright.Assertions;
 
 namespace PlaywrightStClimanuvem.Pages;
 
 /// <summary>
-/// Base for every Page Object screen class — one per SUT screen, same
-/// split as selenium-java's <c>pages/BasePage.java</c>. Every "wait until
-/// visible" need is routed through <see cref="VisibleMatchAsync"/>, a
-/// manual poll (scan all current matches, retry every 200ms) rather than
-/// Playwright's built-in strict-mode locator actions — several of our
-/// locators (submit buttons, duplicated "Sistema" options) legitimately
-/// match more than one element, which Playwright's strict mode rejects
-/// outright; polling mirrors exactly what selenium-java's
-/// <c>WebDriverWait</c> + "first/last visible" loops did.
+/// Base for every screen Page Object. All shared behavior lives here:
+/// resolving the visible element for a <c>data-testid</c>, click/fill helpers,
+/// screen-readiness and feedback-dialog assertions. Timeouts come from the
+/// Playwright defaults configured once in <see cref="BrowserTestBase"/>.
 /// </summary>
 public abstract class BasePage
 {
-    protected const int TimeoutMs = 30_000;
-    protected const string InteractiveSelector = "[role='button'], button, [tabindex]";
-    private const int PollIntervalMs = 200;
-
     protected readonly IPage Page;
 
     protected BasePage(IPage page) => Page = page;
 
-    // ── Shared locator factories ────────────────────────────────────────
+    /// <summary>Test id of this screen's feedback dialog (the <c>*-feedback</c> card).</summary>
+    protected virtual string FeedbackTestId =>
+        throw new NotSupportedException($"{GetType().Name} has no feedback dialog.");
 
-    protected ILocator ByPartialText(string text) => Page.GetByText(text);
+    /// <summary>Asserts that the screen is mounted and usable.</summary>
+    protected abstract Task ExpectReadyAsync();
 
-    protected ILocator ByPlaceholder(string placeholder) => Page.GetByPlaceholder(placeholder);
-
-    /// <summary>Any button/role=button/tabindex element whose text contains `text`.</summary>
-    protected ILocator InteractiveWithText(string text) =>
-        Page.Locator(InteractiveSelector).Filter(new LocatorFilterOptions { HasText = text });
-
-    /// <summary>Any element whose text matches any of `texts` — used for bilingual (es/en) labels.</summary>
-    protected ILocator ByAnyText(params string[] texts) => Page.GetByText(AnyOf(texts));
-
-    /// <summary>Any button/role=button/tabindex element whose text matches any of `texts`.</summary>
-    protected ILocator InteractiveWithAnyText(params string[] texts) =>
-        Page.Locator(InteractiveSelector).Filter(new LocatorFilterOptions { HasTextRegex = AnyOf(texts) });
-
-    private static Regex AnyOf(IEnumerable<string> texts) =>
-        new(string.Join('|', texts.Select(Regex.Escape)), RegexOptions.IgnoreCase);
-
-    // ── Queries ──────────────────────────────────────────────────────────
-
-    protected static async Task<bool> IsPresentAsync(ILocator locator) => await locator.CountAsync() > 0;
-
-    protected static async Task<bool> IsVisibleAsync(ILocator locator)
+    /// <summary>Waits until <paramref name="page"/> is ready and returns it.</summary>
+    public static async Task<T> WhenReadyAsync<T>(T page) where T : BasePage
     {
-        var count = await locator.CountAsync();
-        for (var i = 0; i < count; i++)
-        {
-            if (await locator.Nth(i).IsVisibleAsync())
-            {
-                return true;
-            }
-        }
-        return false;
+        await page.ExpectReadyAsync();
+        return page;
     }
-
-    protected async Task<bool> HasInvalidRequiredInputAsync() =>
-        await Page.EvaluateAsync<int>(
-            "() => Array.from(document.querySelectorAll('input'))"
-            + ".filter(el => el.required && !el.checkValidity()).length") > 0;
-
-    protected async Task<bool> BodyTextContainsAnyAsync(IEnumerable<string> keywords)
-    {
-        var text = (await Page.EvaluateAsync<string>("() => document.body.innerText")).ToLowerInvariant();
-        return keywords.Any(keyword => text.Contains(keyword.ToLowerInvariant()));
-    }
-
-    // ── Actions ──────────────────────────────────────────────────────────
-
-    /// <summary>Waits for the first visible match of `locator` and returns it.</summary>
-    protected static Task<ILocator> WaitForAsync(ILocator locator, int timeoutMs = TimeoutMs) =>
-        VisibleMatchAsync(locator, timeoutMs, last: false);
-
-    /// <summary>Waits for `locator` to have a visible match (first visible) and clicks it.</summary>
-    protected static async Task ClickAsync(ILocator locator, int timeoutMs = TimeoutMs) =>
-        await (await VisibleMatchAsync(locator, timeoutMs, last: false)).ClickAsync();
 
     /// <summary>
-    /// Waits for `locator`, then clicks the *last visible* match among all
-    /// of them — used where React Native Web renders multiple candidates
-    /// and only the last one is the "real" interactive one (e.g. submit
-    /// buttons, the second "Sistema" option under language preferences).
+    /// The visible element with the given test id. The app keeps previous stack
+    /// screens mounted but hidden, so the same id can exist on several screens.
     /// </summary>
-    protected static async Task ClickLastVisibleAsync(ILocator locator, int timeoutMs = TimeoutMs) =>
-        await (await VisibleMatchAsync(locator, timeoutMs, last: true)).ClickAsync();
+    protected ILocator ByTestId(string testId) =>
+        Page.GetByTestId(testId).Filter(new LocatorFilterOptions { Visible = true });
 
-    protected static async Task FillAsync(ILocator locator, string text, int timeoutMs = TimeoutMs) =>
-        await (await VisibleMatchAsync(locator, timeoutMs, last: false)).FillAsync(text);
+    protected Task ClickAsync(string testId) => ByTestId(testId).ClickAsync();
 
-    protected static async Task<string> InputValueAsync(ILocator locator) =>
-        await (await VisibleMatchAsync(locator, TimeoutMs, last: false)).InputValueAsync();
+    protected Task FillAsync(string testId, string text) => ByTestId(testId).FillAsync(text);
 
-    /// <summary>Polls `predicate` (a JS expression returning truthy/falsy) in-browser until it's truthy.</summary>
-    protected async Task WaitUntilAsync(string jsPredicateExpression, int timeoutMs = TimeoutMs) =>
-        await Page.WaitForFunctionAsync(jsPredicateExpression, null, new PageWaitForFunctionOptions { Timeout = timeoutMs });
+    protected Task ExpectVisibleAsync(string testId) => Expect(ByTestId(testId)).ToBeVisibleAsync();
 
-    /// <summary>Scans all current matches of `locator` (first-to-last or last-to-first) every
-    /// <see cref="PollIntervalMs"/>ms until one is visible, or throws once `timeoutMs` elapses —
-    /// the direct equivalent of selenium-java's <c>wait.until(webDriver -> {...})</c> loops.</summary>
-    protected static async Task<ILocator> VisibleMatchAsync(ILocator locator, int timeoutMs, bool last)
+    protected Task ExpectHiddenAsync(string testId) => Expect(ByTestId(testId)).ToBeHiddenAsync();
+
+    protected Task ExpectValueAsync(string testId, string value) => Expect(ByTestId(testId)).ToHaveValueAsync(value);
+
+    /// <summary>Asserts the feedback dialog is shown with exactly this title and a message containing the text.</summary>
+    public async Task ExpectFeedbackAsync(string title, string messagePart)
     {
-        var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
-        do
-        {
-            var count = await locator.CountAsync();
-            var indices = last ? Enumerable.Range(0, count).Reverse() : Enumerable.Range(0, count);
-            foreach (var i in indices)
-            {
-                var candidate = locator.Nth(i);
-                if (await candidate.IsVisibleAsync())
-                {
-                    return candidate;
-                }
-            }
-            await Task.Delay(PollIntervalMs);
-        } while (DateTime.UtcNow < deadline);
-
-        throw new TimeoutException($"No visible element found among matches before {timeoutMs}ms timeout");
+        await ExpectFeedbackTitleAsync(title);
+        await Expect(FeedbackPart(TestIds.Dialog.Message)).ToContainTextAsync(messagePart);
     }
+
+    /// <summary>Same as <see cref="ExpectFeedbackAsync(string, string)"/> but the message must match a pattern.</summary>
+    public async Task ExpectFeedbackAsync(string title, Regex messagePattern)
+    {
+        await ExpectFeedbackTitleAsync(title);
+        await Expect(FeedbackPart(TestIds.Dialog.Message)).ToContainTextAsync(messagePattern);
+    }
+
+    /// <summary>Accepts the feedback dialog and asserts it closes.</summary>
+    public async Task DismissFeedbackAsync()
+    {
+        await FeedbackPart(TestIds.Dialog.AcceptButton).ClickAsync();
+        await ExpectHiddenAsync(FeedbackTestId);
+    }
+
+    private Task ExpectFeedbackTitleAsync(string title) =>
+        Expect(FeedbackPart(TestIds.Dialog.Title)).ToHaveTextAsync(title);
+
+    private ILocator FeedbackPart(string dialogPartTestId) => ByTestId(FeedbackTestId).GetByTestId(dialogPartTestId);
 }

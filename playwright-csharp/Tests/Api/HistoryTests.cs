@@ -1,78 +1,102 @@
-using PlaywrightStClimanuvem.Common;
-
 namespace PlaywrightStClimanuvem.Tests.Api;
 
 /// <summary>
-/// API tests for the analysis history endpoint, mirroring selenium-java's
-/// <c>TestApiHistory</c>:
-///   GET /analysis/history — returns all analyses for the authenticated user
-/// A <c>[SetUp]</c> cleanup ensures the test user starts with an empty
-/// history, making each scenario deterministic regardless of prior test
-/// runs.
+/// GET /api/v1/analyses (list, pagination, X-Total-Count) and GET /api/v1/analyses/{id}. A
+/// [SetUp] cleanup gives every test an empty history regardless of earlier runs.
 /// </summary>
 [TestFixture]
 public class HistoryTests : ApiTestBase
 {
     [SetUp]
-    public async Task CleanUpUserData() => await DeleteAllUserDataAsync();
+    public async Task CleanUpUserData() => await DeleteAllAnalysesAsync();
 
-    [Test]
-    [Description("GET /analysis/history returns HTTP 200 with an empty list when the user has no analyses")]
+    [Test(Description = "The list is empty for a user without analyses")]
     public async Task HistoryInitiallyEmpty()
     {
-        Assert.That(await GetStatusAuthAsync(AnalysisUrl("/history")), Is.EqualTo(200), "History endpoint must return HTTP 200");
+        var response = await GetAsync(AnalysesUrl());
 
-        var history = await GetJsonAuthAsync(AnalysisUrl("/history"));
-        Assert.That(history.GetArrayLength(), Is.EqualTo(0), "History must be empty for a fresh test user");
+        Assert.That(response.Status, Is.EqualTo(200));
+        Assert.That(response.Json.GetArrayLength(), Is.Zero);
     }
 
-    [Test]
-    [Description("GET /analysis/history returns HTTP 200 and lists the uploaded analysis")]
-    public async Task HistoryAfterUploadContainsEntry()
-    {
-        var analysisId = await CreateAnalysisAsync("Oviedo, Spain");
-
-        var history = await GetJsonAuthAsync(AnalysisUrl("/history"));
-        Assert.That(history.GetArrayLength(), Is.GreaterThan(0), "History must contain the uploaded analysis");
-        Assert.That(
-            ContainsByField(history, "id", analysisId), Is.True, $"History must include the analysis with id={analysisId}");
-    }
-
-    [Test]
-    [Description("GET /analysis/history returns entries with id, status, date, location, imageUrl, and results")]
+    [Test(Description = "An uploaded analysis is listed with all required fields")]
     public async Task HistoryEntryHasRequiredFields()
     {
-        await CreateAnalysisAsync("Test City");
+        var id = await CreateAnalysisAsync("Oviedo, Spain");
 
-        var history = await GetJsonAuthAsync(AnalysisUrl("/history"));
-        Assert.That(history.GetArrayLength(), Is.GreaterThan(0), "History must not be empty");
+        var history = await ListAnalysesAsync();
 
+        Assert.That(ContainsId(history, id), Is.True);
         var entry = history[0];
-        Assert.Multiple(() =>
+        using (Assert.EnterMultipleScope())
         {
             foreach (var field in new[] { "id", "status", "date", "location", "imageUrl", "results" })
             {
                 Assert.That(entry.TryGetProperty(field, out _), Is.True, $"Entry must have '{field}'");
             }
-        });
-    }
-
-    [Test]
-    [Description("GET /analysis/history results block contains cloudTypes, cloudDetails, forecast, and warnings")]
-    public async Task HistoryResultsBlockHasRequiredFields()
-    {
-        await CreateAnalysisAsync("Results Field City");
-
-        var history = await GetJsonAuthAsync(AnalysisUrl("/history"));
-        Assert.That(history.GetArrayLength(), Is.GreaterThan(0), "History must not be empty");
-
-        var results = history[0].GetProperty("results");
-        Assert.Multiple(() =>
-        {
+            var results = entry.GetProperty("results");
             foreach (var field in new[] { "cloudTypes", "cloudDetails", "forecast", "warnings" })
             {
                 Assert.That(results.TryGetProperty(field, out _), Is.True, $"results must have '{field}'");
             }
-        });
+        }
+    }
+
+    [Test(Description = "GET /analyses/{id} returns 200 with the analysis object")]
+    public async Task GetSingleReturnsAnalysis()
+    {
+        var id = await CreateAnalysisAsync("Single Get City");
+
+        var response = await GetAsync(AnalysisUrl(id));
+        var analysis = response.Json;
+
+        Assert.That(response.Status, Is.EqualTo(200));
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(analysis.GetProperty("id").GetInt32(), Is.EqualTo(id));
+            Assert.That(analysis.GetProperty("status").GetString(), Is.EqualTo("analyzing"));
+            Assert.That(analysis.GetProperty("location").GetString(), Is.EqualTo("Single Get City"));
+            Assert.That(analysis.GetProperty("imageUrl").GetString(), Is.EqualTo($"/api/v1/analyses/{id}/image"));
+            Assert.That(analysis.TryGetProperty("results", out _), Is.True);
+            Assert.That(analysis.GetProperty("date").GetString(), Does.EndWith("Z"), "ISO-8601 UTC timestamp");
+        }
+    }
+
+    [Test(Description = "GET /analyses/{id} for an unknown id returns 404 ANALYSIS_NOT_FOUND")]
+    public async Task GetSingleUnknownReturns404()
+    {
+        var response = await GetAsync(AnalysisUrl(NonExistentId));
+
+        AssertProblem(response, 404, "ANALYSIS_NOT_FOUND");
+    }
+
+    [Test(Description = "page/size pagination returns newest first and X-Total-Count carries the total")]
+    public async Task PaginationAndTotalCount()
+    {
+        var first = await CreateAnalysisAsync("Page City 1");
+        var second = await CreateAnalysisAsync("Page City 2");
+        var third = await CreateAnalysisAsync("Page City 3");
+
+        var page0 = await GetAsync(AnalysesUrl("?page=0&size=2"));
+        var page1 = await GetAsync(AnalysesUrl("?page=1&size=2"));
+        var ids0 = page0.Json.EnumerateArray().Select(a => a.GetProperty("id").GetInt32()).ToArray();
+        var ids1 = page1.Json.EnumerateArray().Select(a => a.GetProperty("id").GetInt32()).ToArray();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(page0.Header("X-Total-Count"), Is.EqualTo("3"));
+            Assert.That(ids0, Is.EqualTo(new[] { third, second }), "First page, newest first");
+            Assert.That(ids1, Is.EqualTo(new[] { first }), "Second page holds the remainder");
+        }
+    }
+
+    [TestCase("?size=0")]
+    [TestCase("?size=101")]
+    [TestCase("?page=-1")]
+    public async Task OutOfRangePaginationReturns422(string query)
+    {
+        var response = await GetAsync(AnalysesUrl(query));
+
+        Assert.That(response.Status, Is.EqualTo(422));
     }
 }

@@ -497,18 +497,85 @@ jobs:
   # Placeholders: no-op stages for the remaining tool/language combinations.
 
   e2e-playwright-csharp:
-    name: "E2E: Playwright (C#) [placeholder]"
+    name: "E2E: Playwright (C#)"
     runs-on: ubuntu-latest
     needs: docker-images
     permissions:
       contents: read
+    env:
+      BACKEND_IMAGE: climanuvem-backend:test
+      FRONTEND_IMAGE: climanuvem-frontend:test
+      FIREBASE_EMULATOR_IMAGE: climanuvem-firebase-emulator:test
+      CI: "true"
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Placeholder
+      - name: Download images
+        uses: actions/download-artifact@v8
+        with:
+          pattern: image-*
+          path: ${{ runner.temp }}/images
+          merge-multiple: true
+
+      - name: Load images
         run: |
-          echo "TODO: implement the Playwright + C# E2E suite for this stage."
+          for image in "$RUNNER_TEMP"/images/*.tar; do docker load --input "$image"; done
+
+      - name: Start the SUT (prod compose + dev override + test override)
+        run: bash selenium-java/scripts/sut-compose.sh up --detach --no-build db firebase-emulator backend frontend
+
+      - name: Wait for backend, frontend and Firebase emulator
+        run: |
+          for service in "http://localhost:8000/api/v1/ping" "http://localhost:5173" "http://localhost:9099"; do
+            for _ in $(seq 1 60); do
+              if curl --silent --fail --output /dev/null "$service"; then continue 2; fi
+              sleep 5
+            done
+            echo "::error::$service did not become ready"
+            bash selenium-java/scripts/sut-compose.sh logs
+            exit 1
+          done
+
+      - name: Seed Firebase emulator accounts
+        run: ACCOUNTS_FILE="$PWD/playwright-csharp/Resources/accounts.local.csv" bash selenium-java/scripts/seed-firebase-emulator.sh
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: playwright-csharp/global.json
+
+      - name: Build
+        working-directory: playwright-csharp
+        run: dotnet build --configuration Release
+
+      - name: Install Playwright browsers
+        working-directory: playwright-csharp
+        run: pwsh bin/Release/net10.0/playwright.ps1 install --with-deps chromium
+
+      - name: Run Playwright tests (API + system)
+        working-directory: playwright-csharp
+        run: dotnet test --configuration Release --no-build --logger "trx;LogFileName=results.trx"
+
+      - name: Publish test summary
+        if: always()
+        run: python3 .github/scripts/junit-summary.py "Playwright (C#) test results" "playwright-csharp/TestResults/*.trx" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Show container logs on failure
+        if: failure()
+        run: bash selenium-java/scripts/sut-compose.sh logs
+
+      - name: Archive test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-results
+          path: playwright-csharp/TestResults
+          if-no-files-found: ignore
+
+      - name: Tear down
+        if: always()
+        run: bash selenium-java/scripts/sut-compose.sh down --volumes
 
   e2e-cypress-javascript:
     name: "E2E: Cypress (JavaScript)"

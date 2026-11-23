@@ -3,48 +3,57 @@ using PlaywrightStClimanuvem.Common;
 namespace PlaywrightStClimanuvem.Tests.Api;
 
 /// <summary>
-/// API tests for authentication enforcement across the API, mirroring
-/// selenium-java's <c>TestApiAuth</c>:
-///   GET  /test                 — requires a valid Bearer token
-///   GET  /analysis/history     — requires a valid Bearer token
-///   POST /analysis/upload      — requires a valid Bearer token
-/// Missing Authorization header -> HTTP 403 (FastAPI HTTPBearer default).
+/// Authentication enforcement: a missing Authorization header yields 401 NOT_AUTHENTICATED with a
+/// Bearer challenge. In TEST_MODE any token is accepted, so an invalid token is not exercised.
 /// </summary>
 [TestFixture]
 public class AuthTests : ApiTestBase
 {
-    [Test]
-    [Description("GET /test without Authorization header returns HTTP 403")]
-    public async Task TestEndpointRequiresAuth() =>
-        Assert.That(
-            await GetStatusAsync(RootUrl("/test")), Is.EqualTo(403),
-            "/test must return 403 when no Authorization header is sent");
-
-    [Test]
-    [Description("GET /test with the test token returns HTTP 200 and user info")]
-    public async Task TestEndpointWithValidTokenReturns200()
+    [Test(Description = "GET /api/v1/test with the test token returns 200 and user info")]
+    public async Task TestEndpointWithTokenReturnsUser()
     {
-        Assert.That(
-            await GetStatusAuthAsync(RootUrl("/test")), Is.EqualTo(200),
-            "/test must return 200 when a valid test token is provided");
+        var response = await GetAsync(ApiUrl("/test"));
 
-        var body = await GetJsonAuthAsync(RootUrl("/test"));
-        Assert.That(body.TryGetProperty("message", out _), Is.True, "Response must contain 'message'");
-        Assert.That(body.TryGetProperty("user", out _), Is.True, "Response must contain 'user'");
-        Assert.That(body.GetProperty("message").GetString(), Is.EqualTo("Test successful"), "'message' must equal 'Test successful'");
+        Assert.That(response.Status, Is.EqualTo(200));
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(response.Json.GetProperty("message").GetString(), Is.EqualTo("Test successful"));
+            Assert.That(response.Json.TryGetProperty("user", out _), Is.True, "Response must contain 'user'");
+        }
     }
 
-    [Test]
-    [Description("GET /analysis/history without Authorization header returns HTTP 403")]
-    public async Task HistoryRequiresAuth() =>
-        Assert.That(
-            await GetStatusAsync(AnalysisUrl("/history")), Is.EqualTo(403),
-            "/analysis/history must return 403 when no token is provided");
+    [TestCase("GET", "/test")]
+    [TestCase("GET", "/analyses")]
+    [TestCase("GET", "/analyses/1")]
+    [TestCase("GET", "/analyses/1/image")]
+    [TestCase("DELETE", "/analyses/1")]
+    [TestCase("DELETE", "/analyses")]
+    public async Task ProtectedEndpointRequiresAuthorization(string method, string path)
+    {
+        var response = await SendAsync(method, ApiUrl(path), auth: false);
 
-    [Test]
-    [Description("POST /analysis/upload without Authorization header returns HTTP 403")]
-    public async Task UploadRequiresAuth() =>
-        Assert.That(
-            await GetStatusAsync(AnalysisUrl("/upload")), Is.EqualTo(403),
-            "/analysis/upload must return 403 when no token is provided");
+        AssertUnauthenticated(response);
+    }
+
+    [Test(Description = "PATCH /api/v1/analyses/{id} without Authorization returns 401 NOT_AUTHENTICATED")]
+    public async Task PatchRequiresAuthorization()
+    {
+        var response = await PatchStatusAsync(AnalysisUrl(1), "cancelled", auth: false);
+
+        AssertUnauthenticated(response);
+    }
+
+    [Test(Description = "POST /api/v1/analyses without Authorization returns 401 NOT_AUTHENTICATED")]
+    public async Task UploadRequiresAuthorization()
+    {
+        var response = await UploadAsync(TestImages.Tiny(), "No Auth City", auth: false);
+
+        AssertUnauthenticated(response);
+    }
+
+    private static void AssertUnauthenticated(ApiResponse response)
+    {
+        AssertProblem(response, 401, "NOT_AUTHENTICATED");
+        Assert.That(response.Header("WWW-Authenticate"), Does.StartWith("Bearer"));
+    }
 }

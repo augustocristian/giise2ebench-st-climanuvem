@@ -16,6 +16,7 @@ interface ListActionRowProps {
   readonly textContainerStyle: StyleProp<ViewStyle>;
   readonly titleStyle: StyleProp<TextStyle>;
   readonly descriptionStyle: StyleProp<TextStyle>;
+  readonly testID?: string;
 }
 
 export const ListActionRow = ({
@@ -32,8 +33,9 @@ export const ListActionRow = ({
   textContainerStyle,
   titleStyle,
   descriptionStyle,
+  testID,
 }: ListActionRowProps) => (
-  <TouchableOpacity style={cardStyle} onPress={onPress} accessibilityRole="button">
+  <TouchableOpacity style={cardStyle} onPress={onPress} testID={testID} accessibilityRole="button">
     <View style={[iconContainerStyle, { backgroundColor: iconBackgroundColor }]}>
       <Ionicons name={icon} size={size} color={iconColor} />
     </View>

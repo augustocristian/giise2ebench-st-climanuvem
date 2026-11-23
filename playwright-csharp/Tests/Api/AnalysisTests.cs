@@ -3,57 +3,79 @@ using PlaywrightStClimanuvem.Common;
 namespace PlaywrightStClimanuvem.Tests.Api;
 
 /// <summary>
-/// API tests for the image-upload endpoint, mirroring selenium-java's
-/// <c>TestApiAnalysis</c>:
-///   POST /analysis/upload — creates an analysis record and returns its ID
-/// Runs with DISABLE_WORKER=true, so uploaded analyses remain in
-/// 'analyzing' status — no Ollama connection is required.
+/// POST /api/v1/analyses (202 Accepted + Location + {id, status}) and 405 handling. Runs with
+/// DISABLE_WORKER=true, so uploads stay in 'analyzing' and no Ollama is needed.
 /// </summary>
 [TestFixture]
 public class AnalysisTests : ApiTestBase
 {
-    [Test]
-    [Description("POST /analysis/upload returns HTTP 200 with status 'analyzing' and a positive analysis_id")]
-    public async Task UploadImageReturnsAnalyzingStatus()
+    [Test(Description = "Upload returns 202, a Location header and {id, status:'analyzing'}")]
+    public async Task UploadReturnsAcceptedWithLocation()
     {
-        var response = await UploadImageAsync(AnalysisUrl("/upload"), CreateTestImage(), "Test Location");
+        var response = await UploadAsync(TestImages.Tiny());
         var body = response.Json;
+        var id = body.GetProperty("id").GetInt32();
 
-        Assert.Multiple(() =>
+        using (Assert.EnterMultipleScope())
         {
-            Assert.That(body.TryGetProperty("analysis_id", out _), Is.True, "Response must contain 'analysis_id'");
-            Assert.That(body.TryGetProperty("status", out _), Is.True, "Response must contain 'status'");
-            Assert.That(body.GetProperty("status").GetString(), Is.EqualTo("analyzing"), "'status' must be 'analyzing' immediately after upload");
-            Assert.That(body.GetProperty("analysis_id").GetInt32(), Is.GreaterThan(0), "'analysis_id' must be a positive integer");
-        });
+            Assert.That(response.Status, Is.EqualTo(202));
+            Assert.That(id, Is.GreaterThan(0));
+            Assert.That(body.GetProperty("status").GetString(), Is.EqualTo("analyzing"));
+            Assert.That(body.TryGetProperty("analysis_id", out _), Is.False, "Legacy 'analysis_id' must be gone");
+            Assert.That(response.Header("Location"), Does.EndWith($"/api/v1/analyses/{id}"));
+        }
     }
 
-    [Test]
-    [Description("POST /analysis/upload returns HTTP 200")]
-    public async Task UploadImageHttpStatus()
-    {
-        var status = await UploadImageStatusAsync(AnalysisUrl("/upload"), CreateTestImage(), "Another Location");
-        Assert.That(status, Is.EqualTo(200), "Upload must return HTTP 200");
-    }
-
-    [Test]
-    [Description("POST /analysis/upload with a custom location stores the location in the response")]
-    public async Task UploadWithCustomLocation()
+    [Test(Description = "The location sent in the upload is stored on the created analysis")]
+    public async Task UploadStoresLocation()
     {
         var location = $"Madrid, Spain {Unique()}";
-        var response = await UploadImageAsync(AnalysisUrl("/upload"), CreateTestImage(), location);
-        var body = response.Json;
+        var id = await CreateAnalysisAsync(location);
 
-        Assert.That(body.TryGetProperty("analysis_id", out _), Is.True, "Upload with custom location must return 'analysis_id'");
-        Assert.That(body.GetProperty("analysis_id").GetInt32(), Is.GreaterThan(0), "'analysis_id' must be positive");
+        var analysis = await GetAsync(AnalysisUrl(id));
+
+        Assert.That(analysis.Json.GetProperty("location").GetString(), Is.EqualTo(location));
     }
 
-    [Test]
-    [Description("Two consecutive uploads produce distinct analysis IDs")]
+    [Test(Description = "Optional camelCase fields (fcmToken, latitude, longitude, includeExplainability) are accepted")]
+    public async Task UploadAcceptsOptionalFields()
+    {
+        var optional = new Dictionary<string, string>
+        {
+            ["fcmToken"] = "test-fcm-token",
+            ["latitude"] = "43.5322",
+            ["longitude"] = "-5.6611",
+        };
+
+        var response = await UploadAsync(TestImages.Tiny(), "Gijon", includeExplainability: true, extraFields: optional);
+
+        Assert.That(response.Status, Is.EqualTo(202), response.Text);
+    }
+
+    [Test(Description = "Two consecutive uploads produce distinct ids")]
     public async Task ConsecutiveUploadsHaveDistinctIds()
     {
-        var idOne = await CreateAnalysisAsync("Location A");
-        var idTwo = await CreateAnalysisAsync("Location B");
-        Assert.That(idTwo, Is.Not.EqualTo(idOne), "Each upload must produce a unique analysis_id");
+        var first = await CreateAnalysisAsync("Location A");
+        var second = await CreateAnalysisAsync("Location B");
+
+        Assert.That(second, Is.Not.EqualTo(first));
+    }
+
+    [Test(Description = "PUT /api/v1/analyses returns 405 and an Allow header with GET, POST, DELETE")]
+    public async Task UnsupportedMethodOnCollectionReturns405()
+    {
+        var response = await SendAsync("PUT", AnalysesUrl());
+
+        AssertMethodNotAllowed(response, "GET", "POST", "DELETE");
+    }
+
+    [Test(Description = "POST /api/v1/analyses/{id} returns 405 and an Allow header with GET, PATCH, DELETE")]
+    public async Task PostOnSingleAnalysisReturns405()
+    {
+        var id = await CreateAnalysisAsync("Method Check City");
+
+        var response = await SendAsync("POST", AnalysisUrl(id));
+
+        AssertMethodNotAllowed(response, "GET", "PATCH", "DELETE");
     }
 }

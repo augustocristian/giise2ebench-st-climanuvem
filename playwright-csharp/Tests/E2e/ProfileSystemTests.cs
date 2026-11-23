@@ -6,13 +6,8 @@ namespace PlaywrightStClimanuvem.Tests.E2e;
 /// <summary>
 /// Browser system tests for profile configuration, derived from the same
 /// hierarchical test design as selenium-java's <c>TestProfileSystem</c>.
-///
-/// Unlike the Python/Cypress ports of this suite, no manual per-account
-/// session isolation is needed here: <c>[TestCaseSource]</c> gives each
-/// account row its own NUnit test instance, and <see cref="BrowserTestBase"/>
-/// (built on Playwright's <c>PageTest</c>) already provisions a fresh
-/// incognito context per test instance — exactly matching selenium-java's
-/// fresh-ChromeDriver-per-<c>@ParameterizedTest</c>-row behavior.
+/// Each account row gets its own test instance and browser context, so no
+/// manual session isolation is needed.
 /// </summary>
 [TestFixture]
 public class ProfileSystemTests : BrowserTestBase
@@ -38,12 +33,11 @@ public class ProfileSystemTests : BrowserTestBase
     public async Task AuthenticatedDeleteAccountShowsConfirmationAndCanBeCancelled(TestAccount account)
     {
         var profilePage = await OpenAuthenticatedProfileAsync(account);
-        await profilePage.OpenDeleteAccountDialogAsync();
 
-        Assert.That(await profilePage.IsDeleteConfirmVisibleAsync(), Is.True, "Delete account must open a confirmation dialog");
+        await profilePage.OpenDeleteAccountDialogAsync();
+        await profilePage.ExpectFeedbackAsync("Delete Account?", "permanent");
 
         await profilePage.CancelDeleteAccountAsync();
-        Assert.That(await profilePage.IsDeleteConfirmVisibleAsync(), Is.False, "Delete confirmation must close after cancelling");
     }
 
     [TestCaseSource(nameof(ProfileAccountsSource))]
@@ -51,27 +45,19 @@ public class ProfileSystemTests : BrowserTestBase
     public async Task AuthenticatedUsernameLengthRulesAreEnforced(TestAccount account)
     {
         var profilePage = await OpenAuthenticatedProfileAsync(account);
-        var validUsername20 = Username20DifferentFrom(await profilePage.CurrentUsernameAsync());
+        var currentUsername = await profilePage.CurrentUsernameAsync();
 
-        await profilePage.UpdateUsernameAsync(validUsername20);
-        await profilePage.WaitForProfileFeedbackAsync();
-        await profilePage.CloseProfileFeedbackAsync();
-        Assert.That(
-            await profilePage.IsUsernameSectionVisibleAsync(), Is.True,
-            "Twenty-character username must be accepted and keep the user on Profile");
+        await profilePage.SaveUsernameAsync(currentUsername == Username20A ? Username20B : Username20A);
+        await profilePage.ExpectFeedbackAsync("Profile updated", "updated successfully");
+        await profilePage.DismissFeedbackAsync();
+        await profilePage.ExpectUsernameSectionVisibleAsync();
 
-        await profilePage.SetUsernameAsync(Username0);
-        Assert.That(
-            await profilePage.IsSaveButtonEnabledAsync(), Is.False, "Zero-character username must keep the save action disabled");
-
-        await profilePage.SetUsernameAsync(Username2);
-        Assert.That(
-            await profilePage.IsSaveButtonEnabledAsync(), Is.False, "Two-character username must keep the save action disabled");
-
-        await profilePage.SetUsernameAsync(Username21);
-        Assert.That(
-            await profilePage.IsSaveButtonEnabledAsync(), Is.False,
-            "Twenty-one-character username must keep the save action disabled");
+        // Zero, two and twenty-one characters keep the save action disabled.
+        foreach (var invalidUsername in new[] { Username0, Username2, Username21 })
+        {
+            await profilePage.SetUsernameAsync(invalidUsername);
+            await profilePage.ExpectSaveDisabledAsync();
+        }
     }
 
     [TestCaseSource(nameof(ProfileAccountsSource))]
@@ -82,56 +68,18 @@ public class ProfileSystemTests : BrowserTestBase
         await AssertThemeAndLanguagePreferencesSelectableAsync(profilePage);
     }
 
-    private async Task<ProfilePage> OpenGuestProfileAsync()
-    {
-        var home = await LoginAsGuestAsync();
-        var profilePage = await home.ClickProfileAsync();
-        await profilePage.WaitForGuestProfileAsync();
-        Assert.That(await profilePage.IsGuestPreferencesVisibleAsync(), Is.True, "Guest profile must show guest preferences");
-        return profilePage;
-    }
-
-    private async Task<ProfilePage> OpenAuthenticatedProfileAsync(TestAccount account)
-    {
-        var welcome = await OnWelcomePageAsync();
-        var login = await welcome.ClickLoginButtonAsync();
-        await login.LoginAsync(account.Email, account.Password);
-        var home = await login.WaitForHomeAsync();
-        var profilePage = await home.ClickProfileAsync();
-        await profilePage.WaitForAuthenticatedProfileAsync();
-
-        Assert.Multiple(async () =>
-        {
-            Assert.That(
-                await profilePage.IsUsernameSectionVisibleAsync(), Is.True,
-                "Authenticated profile must show username configuration");
-            Assert.That(
-                await profilePage.IsDeleteAccountVisibleAsync(), Is.True, "Authenticated profile must show delete-account action");
-        });
-        return profilePage;
-    }
-
     private static async Task AssertThemeAndLanguagePreferencesSelectableAsync(ProfilePage profilePage)
     {
-        await profilePage.ChooseLightThemeAsync();
-        Assert.That(await profilePage.HasStoredThemeAsync("light"), Is.True, "Profile must store the light theme preference");
+        foreach (var theme in Enum.GetValues<ThemeOption>())
+        {
+            await profilePage.ChooseThemeAsync(theme);
+            await profilePage.ExpectStoredThemeAsync(theme);
+        }
 
-        await profilePage.ChooseDarkThemeAsync();
-        Assert.That(await profilePage.HasStoredThemeAsync("dark"), Is.True, "Profile must store the dark theme preference");
-
-        await profilePage.ChooseSystemThemeAsync();
-        Assert.That(await profilePage.HasStoredThemeAsync("system"), Is.True, "Profile must store the system theme preference");
-
-        await profilePage.ChooseEnglishLanguageAsync();
-        Assert.That(await profilePage.HasStoredLanguageAsync("en"), Is.True, "Profile must store the English language preference");
-
-        await profilePage.ChooseSpanishLanguageAsync();
-        Assert.That(await profilePage.HasStoredLanguageAsync("es"), Is.True, "Profile must store the Spanish language preference");
-
-        await profilePage.ChooseSystemLanguageAsync();
-        Assert.That(await profilePage.HasStoredLanguageAsync("system"), Is.True, "Profile must store the system language preference");
+        foreach (var language in Enum.GetValues<LanguageOption>())
+        {
+            await profilePage.ChooseLanguageAsync(language);
+            await profilePage.ExpectStoredLanguageAsync(language);
+        }
     }
-
-    private static string Username20DifferentFrom(string currentUsername) =>
-        currentUsername == Username20A ? Username20B : Username20A;
 }

@@ -1,60 +1,56 @@
-using PlaywrightStClimanuvem.Common;
-
 namespace PlaywrightStClimanuvem.Tests.Api;
 
-/// <summary>
-/// API tests for the deletion endpoints, mirroring selenium-java's
-/// <c>TestApiDelete</c>:
-///   DELETE /analysis/{id}       — remove a single analysis (HTTP 200 or 404)
-///   DELETE /analysis/user-data  — remove all analyses for the user (HTTP 200)
-/// </summary>
+/// <summary>DELETE /api/v1/analyses/{id} and DELETE /api/v1/analyses (both 204 with an empty body).</summary>
 [TestFixture]
 public class DeleteTests : ApiTestBase
 {
-    private const int NonExistentId = int.MaxValue; // mirrors the Java fixture
-
-    [Test]
-    [Description("DELETE /analysis/{id} returns HTTP 200 and the analysis no longer appears in history")]
-    public async Task DeleteSingleAnalysisReturns200()
+    [Test(Description = "Deleting one analysis returns 204 with no body and the analysis disappears")]
+    public async Task DeleteSingleReturns204()
     {
-        var analysisId = await CreateAnalysisAsync("Delete Me City");
+        var id = await CreateAnalysisAsync("Delete Me City");
 
-        var status = await DeleteStatusAuthAsync(AnalysisUrl($"/{analysisId}"));
-        Assert.That(status, Is.EqualTo(200), "Deleting an existing analysis must return HTTP 200");
+        var response = await DeleteAsync(AnalysisUrl(id));
 
-        var history = await GetJsonAuthAsync(AnalysisUrl("/history"));
-        Assert.That(
-            ContainsByField(history, "id", analysisId), Is.False, "Deleted analysis must not appear in history");
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(response.Status, Is.EqualTo(204));
+            Assert.That(response.Body, Is.Empty);
+            Assert.That(ContainsId(await ListAnalysesAsync(), id), Is.False, "Deleted analysis must not be listed");
+            Assert.That((await GetAsync(AnalysisUrl(id))).Status, Is.EqualTo(404));
+        }
     }
 
-    [Test]
-    [Description("DELETE /analysis/{id} returns HTTP 404 when the analysis does not exist")]
-    public async Task DeleteNonExistentAnalysisReturns404()
+    [Test(Description = "Deleting a non-existent analysis returns 404 ANALYSIS_NOT_FOUND")]
+    public async Task DeleteUnknownReturns404()
     {
-        var status = await DeleteStatusAuthAsync(AnalysisUrl($"/{NonExistentId}"));
-        Assert.That(status, Is.EqualTo(404), "Deleting a non-existent analysis must return HTTP 404");
+        var response = await DeleteAsync(AnalysisUrl(NonExistentId));
+
+        AssertProblem(response, 404, "ANALYSIS_NOT_FOUND");
     }
 
-    [Test]
-    [Description("DELETE /analysis/user-data returns HTTP 200 and clears the user's entire history")]
-    public async Task DeleteUserDataClearsHistory()
+    [Test(Description = "DELETE on the collection returns 204 with no body and clears the history")]
+    public async Task DeleteCollectionClearsHistory()
     {
         await CreateAnalysisAsync("Bulk Delete A");
         await CreateAnalysisAsync("Bulk Delete B");
 
-        var status = await DeleteAllUserDataAsync();
-        Assert.That(status, Is.EqualTo(200), "Deleting all user data must return HTTP 200");
+        var response = await DeleteAsync(AnalysesUrl());
 
-        var history = await GetJsonAuthAsync(AnalysisUrl("/history"));
-        Assert.That(history.GetArrayLength(), Is.EqualTo(0), "History must be empty after deleting all user data");
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(response.Status, Is.EqualTo(204));
+            Assert.That(response.Body, Is.Empty);
+            Assert.That((await ListAnalysesAsync()).GetArrayLength(), Is.Zero);
+        }
     }
 
-    [Test]
-    [Description("DELETE /analysis/user-data returns HTTP 200 even when the user has no data")]
-    public async Task DeleteUserDataWhenEmptyReturns200()
+    [Test(Description = "DELETE on the collection returns 204 even when there is nothing to delete")]
+    public async Task DeleteCollectionWhenEmptyReturns204()
     {
-        await DeleteAllUserDataAsync();
-        var status = await DeleteAllUserDataAsync();
-        Assert.That(status, Is.EqualTo(200), "DELETE /user-data must return 200 even when there is nothing to delete");
+        await DeleteAllAnalysesAsync();
+
+        var response = await DeleteAsync(AnalysesUrl());
+
+        Assert.That(response.Status, Is.EqualTo(204));
     }
 }

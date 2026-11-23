@@ -1,201 +1,81 @@
 using Microsoft.Playwright;
+using PlaywrightStClimanuvem.Common;
+using static Microsoft.Playwright.Assertions;
 
 namespace PlaywrightStClimanuvem.Pages;
 
-/// <summary>
-/// Page Object for profile configuration — mirrors both guest and
-/// authenticated states, and both Spanish/English labels (the language
-/// switcher changes the UI mid-test). Mirrors selenium-java's
-/// <c>ProfilePage</c>.
-/// </summary>
-public sealed class ProfilePage : BasePage
+public enum ThemeOption { Light, Dark, System }
+
+public enum LanguageOption { English, Spanish, System }
+
+/// <summary>Profile screen, in its guest and authenticated variants.</summary>
+public sealed class ProfilePage(IPage page) : BasePage(page)
 {
-    private static readonly string[] StatusFeedbackKeywords =
-    [
-        "perfil actualizado", "profile updated",
-        "fallo de seguridad", "security failure",
-        "error al eliminar datos", "error deleting data",
-        "nombre de usuario debe tener", "username must be between",
-    ];
+    protected override string FeedbackTestId => TestIds.Profile.Feedback;
 
-    private const string UsernameInputSelector =
-        "input[placeholder=\"Escribe tu nombre\"], input[placeholder=\"Enter your name\"]";
+    protected override Task ExpectReadyAsync() => ExpectVisibleAsync(TestIds.Profile.Title);
 
-    private ProfilePage(IPage page) : base(page)
+    public Task ExpectGuestViewAsync() => ExpectVisibleAsync(TestIds.Profile.GuestPreferences);
+
+    public async Task ExpectAuthenticatedViewAsync()
     {
+        await ExpectVisibleAsync(TestIds.Profile.UsernameSection);
+        await ExpectVisibleAsync(TestIds.Profile.DeleteAccountButton);
     }
 
-    public static async Task<ProfilePage> CreateAsync(IPage page)
-    {
-        var profilePage = new ProfilePage(page);
-        await WaitForAsync(profilePage.ProfileTitle());
-        return profilePage;
-    }
+    public Task ExpectUsernameSectionVisibleAsync() => ExpectVisibleAsync(TestIds.Profile.UsernameSection);
 
-    // ── Queries ──────────────────────────────────────────────────────────
+    // Username
 
-    public Task<bool> IsGuestPreferencesVisibleAsync() => IsVisibleAsync(GuestPrefs());
-    public Task<bool> IsUsernameSectionVisibleAsync() => IsVisibleAsync(UsernameSection());
-    public Task<bool> IsDeleteAccountVisibleAsync() => IsVisibleAsync(DeleteAccount());
-    public Task<bool> IsDeleteConfirmVisibleAsync() => IsVisibleAsync(ConfirmDelete());
+    public Task<string> CurrentUsernameAsync() => ByTestId(TestIds.Profile.UsernameInput).InputValueAsync();
 
-    public Task<string> CurrentUsernameAsync() => InputValueAsync(UsernameInput());
+    public Task SetUsernameAsync(string username) => FillAsync(TestIds.Profile.UsernameInput, username);
 
-    public async Task<bool> IsSaveButtonEnabledAsync()
-    {
-        var button = await WaitForAsync(SaveButton());
-        const string script =
-            "(el) => {"
-            + "const target = el.closest(\"[role='button'],button,[tabindex]\") || el;"
-            + "return target.getAttribute('aria-disabled') === 'true'"
-            + " || target.disabled === true"
-            + " || window.getComputedStyle(target).pointerEvents === 'none';";
-        var disabled = await button.EvaluateAsync<bool>(script + "}");
-        return !disabled;
-    }
-
-    public Task<bool> HasStoredThemeAsync(string value) => HasStoredValueAsync("appTheme", value);
-    public Task<bool> HasStoredLanguageAsync(string value) => HasStoredValueAsync("appLanguage", value);
-
-    // ── Actions ──────────────────────────────────────────────────────────
-
-    public Task<ProfilePage> WaitForGuestProfileAsync() => WaitForVisibleThenReturnSelfAsync(GuestPrefs());
-
-    public async Task<ProfilePage> WaitForAuthenticatedProfileAsync()
-    {
-        await WaitForAsync(UsernameSection());
-        await WaitForAsync(DeleteAccount());
-        return this;
-    }
-
-    public Task<ProfilePage> ChooseLightThemeAsync() => ChooseThemeAsync("Claro", "Light", "light");
-    public Task<ProfilePage> ChooseDarkThemeAsync() => ChooseThemeAsync("Oscuro", "Dark", "dark");
-
-    public async Task<ProfilePage> ChooseSystemThemeAsync()
-    {
-        await SelectOptionAsync("Sistema", "System", last: false);
-        await WaitForStoredValueAsync("appTheme", "system");
-        return this;
-    }
-
-    public async Task<ProfilePage> ChooseEnglishLanguageAsync()
-    {
-        await SelectOptionAsync("Inglés", "English", last: false);
-        await WaitForStoredValueAsync("appLanguage", "en");
-        return this;
-    }
-
-    public async Task<ProfilePage> ChooseSpanishLanguageAsync()
-    {
-        await SelectOptionAsync("Español", "Spanish", last: false);
-        await WaitForStoredValueAsync("appLanguage", "es");
-        return this;
-    }
-
-    public async Task<ProfilePage> ChooseSystemLanguageAsync()
-    {
-        // "Sistema"/"System" appears once under theme options and once under language
-        // options — last:true picks the language one, mirroring the Java page object's
-        // `lastMatch` flag on ProfilePage#clickOption.
-        await SelectOptionAsync("Sistema", "System", last: true);
-        await WaitForStoredValueAsync("appLanguage", "system");
-        return this;
-    }
-
-    public async Task<ProfilePage> SetUsernameAsync(string username)
-    {
-        await FillAsync(UsernameInput(), username);
-        return this;
-    }
-
-    public async Task<ProfilePage> UpdateUsernameAsync(string username)
+    public async Task SaveUsernameAsync(string username)
     {
         await SetUsernameAsync(username);
-        await ClickAsync(SaveButton());
-        return this;
+        await ClickAsync(TestIds.Profile.SaveButton);
     }
 
-    public async Task<ProfilePage> WaitForProfileFeedbackAsync()
+    public Task ExpectSaveDisabledAsync() => Expect(ByTestId(TestIds.Profile.SaveButton)).ToBeDisabledAsync();
+
+    // Delete account
+
+    public async Task OpenDeleteAccountDialogAsync()
     {
-        var predicate =
-            "() => {"
-            + "const lower = document.body.innerText.toLowerCase();"
-            + $"return {KeywordsJsArray(StatusFeedbackKeywords)}.some(k => lower.includes(k));"
-            + "}";
-        await WaitUntilAsync(predicate);
-        return this;
+        await ClickAsync(TestIds.Profile.DeleteAccountButton);
+        await ExpectVisibleAsync(TestIds.Profile.DeleteConfirmButton);
     }
 
-    public async Task<ProfilePage> CloseProfileFeedbackAsync()
+    public async Task CancelDeleteAccountAsync()
     {
-        await ClickAsync(InteractiveWithAnyText("Aceptar", "Accept", "OK"));
-        var predicate =
-            "() => {"
-            + "const lower = document.body.innerText.toLowerCase();"
-            + $"return !{KeywordsJsArray(StatusFeedbackKeywords)}.some(k => lower.includes(k));"
-            + "}";
-        await WaitUntilAsync(predicate);
-        return this;
+        await ClickAsync(TestIds.Profile.DeleteCancelButton);
+        await ExpectHiddenAsync(TestIds.Profile.DeleteConfirmButton);
     }
 
-    public async Task<ProfilePage> OpenDeleteAccountDialogAsync()
+    // Preferences
+
+    public Task ChooseThemeAsync(ThemeOption theme) => ClickAsync(theme switch
     {
-        await ClickLastVisibleAsync(DeleteAccount());
-        await WaitForAsync(ConfirmDelete());
-        return this;
-    }
+        ThemeOption.Light => TestIds.Profile.ThemeLight,
+        ThemeOption.Dark => TestIds.Profile.ThemeDark,
+        _ => TestIds.Profile.ThemeSystem,
+    });
 
-    public async Task<ProfilePage> CancelDeleteAccountAsync()
+    public Task ChooseLanguageAsync(LanguageOption language) => ClickAsync(language switch
     {
-        await ClickAsync(Cancel());
-        const string predicate =
-            "() => {"
-            + "const text = document.body.innerText;"
-            + "return !text.includes('Sí, eliminar') && !text.includes('Yes, delete');"
-            + "}";
-        await WaitUntilAsync(predicate);
-        return this;
-    }
+        LanguageOption.English => TestIds.Profile.LanguageEnglish,
+        LanguageOption.Spanish => TestIds.Profile.LanguageSpanish,
+        _ => TestIds.Profile.LanguageSystem,
+    });
 
-    // ── Internals ────────────────────────────────────────────────────────
+    public Task ExpectStoredThemeAsync(ThemeOption theme) =>
+        ExpectStoredAsync("appTheme", theme.ToString().ToLowerInvariant());
 
-    private ILocator ProfileTitle() => ByAnyText("Mi Perfil", "My Profile");
-    private ILocator GuestPrefs() => ByAnyText("Preferencias de invitado", "Guest preferences");
-    private ILocator UsernameSection() => ByAnyText("Nombre de usuario", "Username");
-    private ILocator DeleteAccount() => InteractiveWithAnyText("Eliminar Cuenta", "Delete Account");
-    private ILocator ConfirmDelete() => InteractiveWithAnyText("Sí, eliminar", "Yes, delete");
-    private ILocator Cancel() => InteractiveWithAnyText("Cancelar", "Cancel");
-    private ILocator SaveButton() => InteractiveWithAnyText("Guardar Cambios", "Save Changes");
-    private ILocator UsernameInput() => Page.Locator(UsernameInputSelector);
+    public Task ExpectStoredLanguageAsync(LanguageOption language) => ExpectStoredAsync(
+        "appLanguage",
+        language switch { LanguageOption.English => "en", LanguageOption.Spanish => "es", _ => "system" });
 
-    private async Task<ProfilePage> ChooseThemeAsync(string es, string en, string storedValue)
-    {
-        await SelectOptionAsync(es, en, last: false);
-        await WaitForStoredValueAsync("appTheme", storedValue);
-        return this;
-    }
-
-    private async Task SelectOptionAsync(string es, string en, bool last)
-    {
-        var option = await VisibleMatchAsync(InteractiveWithAnyText(es, en), TimeoutMs, last);
-        await option.ClickAsync();
-    }
-
-    private async Task WaitForStoredValueAsync(string key, string expected)
-    {
-        var predicate = $"() => window.localStorage.getItem('{key}') === '{expected}'";
-        await WaitUntilAsync(predicate);
-    }
-
-    private async Task<bool> HasStoredValueAsync(string key, string expected) =>
-        await Page.EvaluateAsync<string?>("(k) => window.localStorage.getItem(k)", key) == expected;
-
-    private async Task<ProfilePage> WaitForVisibleThenReturnSelfAsync(ILocator locator)
-    {
-        await WaitForAsync(locator);
-        return this;
-    }
-
-    private static string KeywordsJsArray(IEnumerable<string> keywords) =>
-        "[" + string.Join(',', keywords.Select(k => $"'{k}'")) + "]";
+    private Task ExpectStoredAsync(string key, string value) =>
+        Page.WaitForFunctionAsync("([k, v]) => window.localStorage.getItem(k) === v", new[] { key, value });
 }

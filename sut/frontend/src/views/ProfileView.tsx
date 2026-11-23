@@ -17,6 +17,7 @@ interface ProfileViewProps {
 }
 
 type PickerOption<T extends string> = {
+  testID: string;
   value: T;
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
@@ -35,6 +36,7 @@ const OptionPicker = <T extends string>({ options, value, onChange, theme, style
     {options.map((option) => (
       <TouchableOpacity
         key={option.value}
+        testID={option.testID}
         style={[styles.themeButton, value === option.value && styles.themeButtonActive]}
         onPress={() => onChange(option.value)}
       >
@@ -63,9 +65,9 @@ const AppearanceSection = ({ theme, themeMode, setThemeMode, t, styles }: {
       value={themeMode}
       onChange={setThemeMode}
       options={[
-        { value: 'light', label: t('common.light'), icon: 'sunny-outline' },
-        { value: 'dark', label: t('common.dark'), icon: 'moon-outline' },
-        { value: 'system', label: t('common.system'), icon: 'phone-portrait-outline' },
+        { testID: 'profile-theme-light', value: 'light', label: t('common.light'), icon: 'sunny-outline' },
+        { testID: 'profile-theme-dark', value: 'dark', label: t('common.dark'), icon: 'moon-outline' },
+        { testID: 'profile-theme-system', value: 'system', label: t('common.system'), icon: 'phone-portrait-outline' },
       ]}
     />
   </View>
@@ -89,9 +91,9 @@ const LanguageSection = ({ theme, languageMode, setLanguageMode, t, styles }: {
       value={languageMode}
       onChange={setLanguageMode}
       options={[
-        { value: 'en', label: t('common.english'), icon: 'language-outline' },
-        { value: 'es', label: t('common.spanish'), icon: 'language-outline' },
-        { value: 'system', label: t('common.system'), icon: 'phone-portrait-outline' },
+        { testID: 'profile-language-english', value: 'en', label: t('common.english'), icon: 'language-outline' },
+        { testID: 'profile-language-spanish', value: 'es', label: t('common.spanish'), icon: 'language-outline' },
+        { testID: 'profile-language-system', value: 'system', label: t('common.system'), icon: 'phone-portrait-outline' },
       ]}
     />
   </View>
@@ -111,6 +113,7 @@ const DangerZoneSection = ({ confirmDeleteAccount, deleting, t, styles }: {
     <TouchableOpacity 
       style={styles.dangerButton} 
       onPress={confirmDeleteAccount}
+      testID="profile-delete-account-button"
       disabled={deleting}
     >
       <Ionicons name="trash-outline" size={20} color="white" />
@@ -123,7 +126,7 @@ const GuestInfoSection = ({ t, styles }: {
   t: (key: string) => string;
   styles: ReturnType<typeof getProfileViewStyles>;
 }) => (
-  <View style={styles.card}>
+  <View style={styles.card} testID="profile-guest-preferences">
     <Text style={styles.sectionTitle}>{t('profile.guestPreferencesTitle')}</Text>
     <Text style={styles.warningText}>{t('profile.guestPreferencesDesc')}</Text>
   </View>
@@ -155,14 +158,14 @@ export function ProfileView({ controller }: Readonly<ProfileViewProps>) {
 
   return (
     <View style={styles.container}>
-      <AppHeader title={t('profile.title')} showBack={true} onBack={handleGoBack} />
+      <AppHeader title={t('profile.title')} showBack={true} onBack={handleGoBack} backTestID="profile-back-button" titleTestID="profile-title" />
       
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.avatarContainer}>
           <View style={styles.avatarCircle}>
             <Ionicons name="person" size={48} color={theme.colors.primary} />
           </View>
-          <ThemedText style={styles.emailText}>
+          <ThemedText style={styles.emailText} testID="profile-email">
             {isGuest ? displayName : userEmail}
           </ThemedText>
         </View>
@@ -170,9 +173,10 @@ export function ProfileView({ controller }: Readonly<ProfileViewProps>) {
         {isGuest ? (
           <GuestInfoSection t={t} styles={styles} />
         ) : (
-          <View style={styles.card}>
+          <View style={styles.card} testID="profile-username-section">
             <Text style={styles.sectionTitle}>{t('profile.username')}</Text>
             <TextInput
+              testID="profile-username-input"
               style={styles.input}
               value={newName}
               onChangeText={setNewName}
@@ -185,6 +189,7 @@ export function ProfileView({ controller }: Readonly<ProfileViewProps>) {
                 onPress={handleUpdateName}
                 variant="primary"
                 disabled={!canSaveName}
+                testID="profile-save-button"
                 textStyle={{ fontSize: 14 }}
                 style={{ paddingVertical: 12, paddingHorizontal: 20 }}
               />
@@ -202,6 +207,9 @@ export function ProfileView({ controller }: Readonly<ProfileViewProps>) {
       </ScrollView>
 
       <StatusModal
+        testID="profile-feedback"
+        confirmTestID="profile-delete-confirm-button"
+        cancelTestID="profile-delete-cancel-button"
         visible={modalVisible}
         type={modalConfig.type}
         title={modalConfig.title}
