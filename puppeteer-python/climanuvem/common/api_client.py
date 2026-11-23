@@ -1,199 +1,124 @@
-# -*- coding: utf-8 -*-
-"""Base class for the ClimaNuvem API test suite. Handles HTTP plumbing,
-Bearer-token auth, multipart image upload, and common fixture creation.
-Mirrors selenium-java's ``BaseApiClass``.
+"""HTTP client for the ClimaNuvem REST API (``/api/v1``).
 
-The SUT must be started with ``TEST_MODE=true`` so that requests bearing
-``test_token`` bypass Firebase verification (see ``sut/docker-compose.test.yml``).
+The SUT runs with ``TEST_MODE=true``: any Bearer token is accepted, so the configured test token authenticates
+the test user and a missing ``Authorization`` header is the only unauthenticated case.
 """
-import io
-import logging
 import time
-import unittest
-from typing import Optional
+from collections.abc import Callable, Mapping
+from typing import Any, TypeVar
 
 import requests
-from PIL import Image, ImageDraw
 
-from climanuvem.common import config
+from climanuvem.common import config, test_images
 
-logger = logging.getLogger(__name__)
+API_PREFIX = "/api/v1"
+NON_EXISTENT_ID = 2**31 - 1
+TERMINAL_STATUSES = ("completed", "cancelled")
 
-_TOO_LARGE_PAYLOAD_SIZE = 5 * 1024 * 1024 + 1
-
-
-def _to_jpeg_bytes(image: Image.Image) -> bytes:
-    buffer = io.BytesIO()
-    image.save(buffer, format="JPEG", quality=90)
-    return buffer.getvalue()
+T = TypeVar("T")
 
 
-class ApiTestCase(unittest.TestCase):
-    """Base class for HTTP-level tests — no browser involved."""
+def poll_until(probe: Callable[[], T], done: Callable[[T], bool], timeout_s: float, poll_s: float = 2.0) -> T:
+    """Calls ``probe`` every ``poll_s`` seconds until ``done`` holds or the timeout elapses; returns the last value."""
+    deadline = time.monotonic() + timeout_s
+    while True:
+        value = probe()
+        if done(value) or time.monotonic() >= deadline:
+            return value
+        time.sleep(poll_s)
 
-    sut_url = config.SUT_URL
-    test_token = config.TEST_TOKEN
 
-    @classmethod
-    def setUpClass(cls):
-        cls.session = requests.Session()
-        logger.info("API base URL: %s", cls.sut_url)
+class ApiClient:
+    """One HTTP session against the SUT: a single request helper, a single multipart upload helper and shortcuts."""
 
-    @classmethod
-    def tearDownClass(cls):
-        cls.session.close()
+    def __init__(self, base_url: str = config.SUT_URL, token: str = config.TEST_TOKEN,
+                 timeout_s: float = config.HTTP_TIMEOUT_S) -> None:
+        self.base_url = base_url
+        self.token = token
+        self.timeout_s = timeout_s
+        self._session = requests.Session()
 
-    # ── URL builders ─────────────────────────────────────────────────────
+    def close(self) -> None:
+        self._session.close()
 
-    def analysis_url(self, path: str) -> str:
-        return f"{self.sut_url}/analysis{path}"
+    # URLs (relative to the SUT base URL)
 
-    def root_url(self, path: str) -> str:
-        return f"{self.sut_url}{path}"
+    @staticmethod
+    def api_url(path: str = "") -> str:
+        """Path under the versioned API prefix; empty or starting with "/"."""
+        return API_PREFIX + path
 
-    # ── Unauthenticated HTTP ─────────────────────────────────────────────
+    @staticmethod
+    def analyses_url(suffix: str = "") -> str:
+        """The analyses collection; ``suffix`` is empty or a query string such as "?page=1"."""
+        return ApiClient.api_url("/analyses") + suffix
 
-    def get_status(self, url: str) -> int:
-        return self.session.get(url, timeout=config.HTTP_TIMEOUT_S).status_code
+    @staticmethod
+    def analysis_url(analysis_id: int) -> str:
+        return ApiClient.api_url(f"/analyses/{analysis_id}")
 
-    def get_json(self, url: str):
-        return self.session.get(url, timeout=config.HTTP_TIMEOUT_S).json()
+    @staticmethod
+    def image_url(analysis_id: int) -> str:
+        return ApiClient.analysis_url(analysis_id) + "/image"
 
-    # ── Authenticated HTTP ───────────────────────────────────────────────
+    # Requests
 
-    def _auth_headers(self) -> dict:
-        return {"Authorization": f"Bearer {self.test_token}"}
+    def send(self, method: str, url: str, *, auth: bool = True, json: Any = None,
+             files: Mapping[str, Any] | None = None) -> requests.Response:
+        """The single request helper: every call in the suite goes through here."""
+        headers = {"Authorization": f"Bearer {self.token}"} if auth else {}
+        return self._session.request(
+            method, self.base_url + url, headers=headers, json=json, files=files, timeout=self.timeout_s
+        )
 
-    def get_status_auth(self, url: str) -> int:
-        return self.session.get(url, headers=self._auth_headers(), timeout=config.HTTP_TIMEOUT_S).status_code
+    def get(self, url: str, *, auth: bool = True) -> requests.Response:
+        return self.send("GET", url, auth=auth)
 
-    def get_json_auth(self, url: str):
-        return self.session.get(url, headers=self._auth_headers(), timeout=config.HTTP_TIMEOUT_S).json()
+    def delete(self, url: str, *, auth: bool = True) -> requests.Response:
+        return self.send("DELETE", url, auth=auth)
 
-    def delete_status_auth(self, url: str) -> int:
-        return self.session.delete(url, headers=self._auth_headers(), timeout=config.HTTP_TIMEOUT_S).status_code
+    def patch_status(self, url: str, status: str, *, auth: bool = True) -> requests.Response:
+        return self.send("PATCH", url, auth=auth, json={"status": status})
 
-    def patch_status_auth(self, url: str) -> int:
-        return self.session.patch(url, headers=self._auth_headers(), timeout=config.HTTP_TIMEOUT_S).status_code
+    def upload(self, image: bytes | None, location: str = "Test Location", filename: str = "test.jpg",
+               content_type: str = "image/jpeg", include_explainability: bool | None = None,
+               extra_fields: Mapping[str, str] | None = None, auth: bool = True) -> requests.Response:
+        """Multipart ``POST /api/v1/analyses`` with camelCase fields.
 
-    # ── Multipart image upload ──────────────────────────────────────────
-
-    def upload_image(
-        self,
-        url: str,
-        image_bytes: bytes,
-        location: str,
-        filename: str = "test.jpg",
-        content_type: str = "image/jpeg",
-        include_explainability: Optional[bool] = None,
-    ) -> requests.Response:
-        data = {"location": location}
+        A ``None`` image omits the file part; a ``None`` ``include_explainability`` omits that field.
+        """
+        fields = {"location": location, **(extra_fields or {})}
         if include_explainability is not None:
-            data["include_explainability"] = str(include_explainability)
-        files = {"file": (filename, image_bytes, content_type)}
-        return self.session.post(
-            url, headers=self._auth_headers(), data=data, files=files, timeout=config.HTTP_TIMEOUT_S
-        )
+            fields["includeExplainability"] = str(include_explainability).lower()
+        parts: dict[str, Any] = {name: (None, value) for name, value in fields.items()}
+        if image is not None:
+            parts["file"] = (filename, image, content_type)
+        return self.send("POST", self.analyses_url(), auth=auth, files=parts)
 
-    def upload_image_status(self, *args, **kwargs) -> int:
-        return self.upload_image(*args, **kwargs).status_code
-
-    def upload_without_file_status(self, url: str, location: str) -> int:
-        response = self.session.post(
-            url, headers=self._auth_headers(), data={"location": location}, timeout=config.HTTP_TIMEOUT_S
-        )
-        return response.status_code
-
-    # ── JSON / history helpers ──────────────────────────────────────────
-
-    def find_analysis_in_history(self, analysis_id: int) -> Optional[dict]:
-        history = self.get_json_auth(self.analysis_url("/history"))
-        for entry in history:
-            if entry.get("id") == analysis_id:
-                return entry
-        return None
-
-    def wait_for_analysis_terminal_status(
-        self, analysis_id: int, timeout_ms: Optional[int] = None, poll_ms: int = 5000
-    ) -> Optional[dict]:
-        timeout_ms = config.ANALYSIS_TIMEOUT_MS if timeout_ms is None else timeout_ms
-        deadline = time.monotonic() + timeout_ms / 1000
-        last_seen = None
-
-        while time.monotonic() < deadline:
-            last_seen = self.find_analysis_in_history(analysis_id)
-            if last_seen and last_seen.get("status") in ("completed", "cancelled"):
-                return last_seen
-            time.sleep(poll_ms / 1000)
-
-        return last_seen
-
-    @staticmethod
-    def contains_by_field(items, field: str, expected) -> bool:
-        return any(str(item.get(field)) == str(expected) for item in items)
-
-    # ── Test data helpers ────────────────────────────────────────────────
-
-    @staticmethod
-    def unique() -> int:
-        return int(time.time() * 1000)
-
-    @staticmethod
-    def create_test_image() -> bytes:
-        """Minimal 10x10 solid JPEG — small and fast, valid enough for the upload endpoint."""
-        image = Image.new("RGB", (10, 10), color=(200, 200, 200))
-        return _to_jpeg_bytes(image)
-
-    @staticmethod
-    def create_cloudy_jpeg() -> bytes:
-        image = Image.new("RGB", (640, 360), color=(98, 171, 232))
-        draw = ImageDraw.Draw(image)
-        draw.ellipse((120, 95, 300, 189), fill=(245, 248, 250))
-        draw.ellipse((235, 70, 445, 194), fill=(245, 248, 250))
-        draw.ellipse((380, 115, 530, 195), fill=(245, 248, 250))
-        draw.rectangle((175, 145, 485, 220), fill=(245, 248, 250))
-        draw.ellipse((210, 175, 380, 229), fill=(225, 232, 238))
-        return _to_jpeg_bytes(image)
-
-    @staticmethod
-    def create_no_cloud_jpeg() -> bytes:
-        width, height = 640, 360
-        image = Image.new("RGB", (width, height))
-        draw = ImageDraw.Draw(image)
-        for y in range(height):
-            ratio = y / height
-            red = 70 + round(35 * ratio)
-            green = 155 + round(45 * ratio)
-            blue = 225 + round(25 * ratio)
-            draw.line((0, y, width, y), fill=(red, green, blue))
-        return _to_jpeg_bytes(image)
-
-    @staticmethod
-    def create_empty_image_bytes() -> bytes:
-        return b""
-
-    @staticmethod
-    def create_too_large_payload() -> bytes:
-        """A valid small JPEG followed by junk bytes, padded past the 5 MB upload limit."""
-        valid_jpeg = ApiTestCase.create_test_image()
-        padding_len = _TOO_LARGE_PAYLOAD_SIZE - len(valid_jpeg)
-        pattern = bytes(i % 251 for i in range(251))
-        full_cycles, remainder = divmod(padding_len, len(pattern))
-        padding = pattern * full_cycles + pattern[:remainder]
-        return valid_jpeg + padding
-
-    @staticmethod
-    def create_non_jpeg_payload() -> bytes:
-        return b"not-a-jpeg-image"
+    # Fixtures and shared flows
 
     def create_analysis(self, location: str) -> int:
-        """Uploads a test image to POST /analysis/upload and returns the assigned analysis ID."""
-        image = self.create_test_image()
-        response = self.upload_image(self.analysis_url("/upload"), image, location)
-        return response.json()["analysis_id"]
+        """Uploads a tiny valid JPEG and returns the new analysis id."""
+        response = self.upload(test_images.tiny(), location)
+        assert response.status_code == 202, f"Upload failed: {response.text}"
+        return response.json()["id"]
 
-    def delete_all_user_data(self) -> int:
-        """Deletes all analysis records for the test user via DELETE /analysis/user-data."""
-        status = self.delete_status_auth(self.analysis_url("/user-data"))
-        logger.debug("Deleted all user data for test user")
-        return status
+    def delete_all_analyses(self) -> None:
+        """Clears the test user's data."""
+        response = self.delete(self.analyses_url())
+        assert response.status_code == 204, f"DELETE /analyses must clear the test user's data: {response.text}"
+
+    def list_analyses(self, query: str = "?size=100") -> list[dict]:
+        """Lists the test user's analyses (first page of up to 100)."""
+        response = self.get(self.analyses_url(query))
+        assert response.status_code == 200, response.text
+        return response.json()
+
+    def wait_for_terminal_status(self, analysis_id: int, timeout_s: float = config.ANALYSIS_TIMEOUT_S) -> dict:
+        """Polls ``GET /analyses/{id}`` until it is completed or cancelled; returns the last analysis seen."""
+        def probe() -> dict:
+            response = self.get(self.analysis_url(analysis_id))
+            assert response.status_code == 200, response.text
+            return response.json()
+
+        return poll_until(probe, lambda analysis: analysis["status"] in TERMINAL_STATUSES, timeout_s)

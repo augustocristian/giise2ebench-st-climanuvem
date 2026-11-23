@@ -1,11 +1,11 @@
-# -*- coding: utf-8 -*-
-"""Account row used by the system tests. Mirrors selenium-java's
-``TestAccount``."""
+"""Account row used by the parameterized system tests."""
 from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
 class TestAccount:
+    __test__ = False  # not a pytest test class
+
     role: str
     email: str
     password: str

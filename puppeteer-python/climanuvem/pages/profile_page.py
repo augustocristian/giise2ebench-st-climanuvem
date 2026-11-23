@@ -1,197 +1,111 @@
-# -*- coding: utf-8 -*-
-"""Page Object for profile configuration — mirrors both guest and
-authenticated states, and both Spanish/English labels (the language
-switcher changes the UI mid-test). Mirrors selenium-java's ``ProfilePage``.
-"""
-from climanuvem.pages.base_page import BasePage, Locator
+"""Page object of the Profile screen, in its guest and authenticated variants."""
+from enum import Enum
 
-STATUS_FEEDBACK_KEYWORDS = (
-    "perfil actualizado",
-    "profile updated",
-    "fallo de seguridad",
-    "security failure",
-    "error al eliminar datos",
-    "error deleting data",
-    "nombre de usuario debe tener",
-    "username must be between",
-)
+from climanuvem.browser import TestId
+from climanuvem.common.test_ids import Profile
+from climanuvem.pages.base_page import BasePage
 
 
-def _any_text(es: str, en: str) -> Locator:
-    return BasePage.by_xpath(f"//*[contains(normalize-space(.),'{es}') or contains(normalize-space(.),'{en}')]")
+class ThemeOption(Enum):
+    """Theme choices: the option's test id and the value stored in ``localStorage``."""
+
+    LIGHT = (Profile.THEME_LIGHT, "light")
+    DARK = (Profile.THEME_DARK, "dark")
+    SYSTEM = (Profile.THEME_SYSTEM, "system")
+
+    def __init__(self, test_id: str, stored_value: str) -> None:
+        self.test_id = test_id
+        self.stored_value = stored_value
 
 
-def _any_interactive_text(es: str, en: str) -> Locator:
-    return BasePage.by_xpath(
-        "//*[@role='button' or self::button or @tabindex]"
-        f"[contains(normalize-space(.),'{es}') or contains(normalize-space(.),'{en}')]"
-    )
+class LanguageOption(Enum):
+    """Language choices: the option's test id and the value stored in ``localStorage``."""
 
+    ENGLISH = (Profile.LANGUAGE_ENGLISH, "en")
+    SPANISH = (Profile.LANGUAGE_SPANISH, "es")
+    SYSTEM = (Profile.LANGUAGE_SYSTEM, "system")
 
-def _keywords_js(keywords) -> str:
-    return "[" + ",".join(f"'{keyword}'" for keyword in keywords) + "]"
+    def __init__(self, test_id: str, stored_value: str) -> None:
+        self.test_id = test_id
+        self.stored_value = stored_value
 
 
 class ProfilePage(BasePage):
-    PROFILE_TITLE = _any_text("Mi Perfil", "My Profile")
-    GUEST_PREFS = _any_text("Preferencias de invitado", "Guest preferences")
-    USERNAME_SECTION = _any_text("Nombre de usuario", "Username")
-    DELETE_ACCOUNT = _any_interactive_text("Eliminar Cuenta", "Delete Account")
-    CONFIRM_DELETE = _any_interactive_text("Sí, eliminar", "Yes, delete")
-    CANCEL = _any_interactive_text("Cancelar", "Cancel")
-    ACCEPT = BasePage.by_xpath(
-        "//*[@role='button' or self::button or @tabindex]"
-        "[contains(normalize-space(.),'Aceptar') or contains(normalize-space(.),'Accept') "
-        "or contains(normalize-space(.),'OK')]"
-    )
-    USERNAME_INPUT = Locator("css", 'input[placeholder="Escribe tu nombre"],input[placeholder="Enter your name"]')
-    SAVE_BUTTON = _any_interactive_text("Guardar Cambios", "Save Changes")
+    FEEDBACK_ID = Profile.FEEDBACK
 
-    def __init__(self, session):
-        super().__init__(session)
-        self.wait_for(self.PROFILE_TITLE)
+    async def _wait_ready(self) -> None:
+        await self._wait_visible(Profile.TITLE)
 
-    # ── Queries ──────────────────────────────────────────────────────────
+    async def _wait_visible(self, test_id: str) -> None:
+        await self.locator(TestId.of(test_id)).wait_for("visible")
 
-    def is_guest_preferences_visible(self) -> bool:
-        return self.is_visible(self.GUEST_PREFS)
+    # Views
 
-    def is_username_section_visible(self) -> bool:
-        return self.is_visible(self.USERNAME_SECTION)
+    async def expect_guest_view(self) -> None:
+        """Waits for the guest variant: the guest preferences notice."""
+        await self._wait_visible(Profile.GUEST_PREFERENCES)
 
-    def is_delete_account_visible(self) -> bool:
-        return self.is_visible(self.DELETE_ACCOUNT)
+    async def expect_authenticated_view(self) -> None:
+        """Waits for the authenticated variant: username section and delete-account action."""
+        await self._wait_visible(Profile.USERNAME_SECTION)
+        await self._wait_visible(Profile.DELETE_ACCOUNT_BUTTON)
 
-    def is_delete_confirm_visible(self) -> bool:
-        return self.is_visible(self.CONFIRM_DELETE)
+    async def expect_username_section_visible(self) -> None:
+        await self._wait_visible(Profile.USERNAME_SECTION)
 
-    def current_username(self) -> str:
-        return self.input_value(self.USERNAME_INPUT)
+    async def displayed_email(self) -> str:
+        """Text under the avatar: the account email, or the guest label."""
+        return await self.locator(TestId.of(Profile.EMAIL)).text()
 
-    def is_save_button_enabled(self) -> bool:
-        element = self.wait_for(self.SAVE_BUTTON)
-        script = (
-            "(el) => {"
-            "const target = el.closest(`[role='button'],button,[tabindex]`) || el;"
-            "return target.getAttribute('aria-disabled') === 'true'"
-            " || target.disabled === true"
-            " || window.getComputedStyle(target).pointerEvents === 'none';"
-            "}"
-        )
-        disabled = self._run(self._page.evaluate(script, element))
-        return not disabled
+    # Username
 
-    def has_stored_theme(self, value: str) -> bool:
-        return self._stored_value("appTheme") == value
+    async def current_username(self) -> str:
+        return await self.locator(TestId.of(Profile.USERNAME_INPUT)).input_value()
 
-    def has_stored_language(self, value: str) -> bool:
-        return self._stored_value("appLanguage") == value
+    async def set_username(self, username: str) -> None:
+        await self.fill(TestId.of(Profile.USERNAME_INPUT), username)
 
-    # ── Actions ──────────────────────────────────────────────────────────
+    async def save_username(self, username: str) -> None:
+        await self.set_username(username)
+        await self.click(TestId.of(Profile.SAVE_BUTTON))
 
-    def wait_for_guest_profile(self) -> "ProfilePage":
-        self.wait_for(self.GUEST_PREFS)
-        return self
+    async def is_save_enabled(self) -> bool:
+        """Whether the save button can be pressed (disabled buttons expose ``aria-disabled``)."""
+        save_button = self.locator(TestId.of(Profile.SAVE_BUTTON))
+        return await save_button.attribute("aria-disabled") != "true"
 
-    def wait_for_authenticated_profile(self) -> "ProfilePage":
-        self.wait_for(self.USERNAME_SECTION)
-        self.wait_for(self.DELETE_ACCOUNT)
-        return self
+    async def expect_save_disabled(self) -> None:
+        async def disabled() -> bool:
+            return not await self.is_save_enabled()
 
-    def choose_light_theme(self) -> "ProfilePage":
-        return self._choose_theme("Claro", "Light", "light")
+        await self.wait_until(disabled, "the save button to be disabled")
 
-    def choose_dark_theme(self) -> "ProfilePage":
-        return self._choose_theme("Oscuro", "Dark", "dark")
+    # Delete account
 
-    def choose_system_theme(self) -> "ProfilePage":
-        self._select_option("Sistema", "System", last=False)
-        self._wait_for_stored_value("appTheme", "system")
-        return self
+    async def open_delete_account_dialog(self) -> None:
+        await self.click(TestId.of(Profile.DELETE_ACCOUNT_BUTTON))
+        await self._wait_visible(Profile.DELETE_CONFIRM_BUTTON)
 
-    def choose_english_language(self) -> "ProfilePage":
-        self._select_option("Inglés", "English", last=False)
-        self._wait_for_stored_value("appLanguage", "en")
-        return self
+    async def cancel_delete_account(self) -> None:
+        await self.click(TestId.of(Profile.DELETE_CANCEL_BUTTON))
+        await self.wait_hidden(self.locator(TestId.of(Profile.DELETE_CONFIRM_BUTTON)))
 
-    def choose_spanish_language(self) -> "ProfilePage":
-        self._select_option("Español", "Spanish", last=False)
-        self._wait_for_stored_value("appLanguage", "es")
-        return self
+    # Preferences
 
-    def choose_system_language(self) -> "ProfilePage":
-        # "Sistema"/"System" appears once under theme options and once under language
-        # options — `last=True` picks the language one, mirroring the Java page
-        # object's `lastMatch` flag on ProfilePage#clickOption.
-        self._select_option("Sistema", "System", last=True)
-        self._wait_for_stored_value("appLanguage", "system")
-        return self
+    async def choose_theme(self, theme: ThemeOption) -> None:
+        await self.click(TestId.of(theme.test_id))
 
-    def set_username(self, username: str) -> "ProfilePage":
-        self.fill(self.USERNAME_INPUT, username)
-        return self
+    async def choose_language(self, language: LanguageOption) -> None:
+        await self.click(TestId.of(language.test_id))
 
-    def update_username(self, username: str) -> "ProfilePage":
-        self.set_username(username)
-        self.click(self.SAVE_BUTTON)
-        return self
+    async def expect_stored_theme(self, theme: ThemeOption) -> None:
+        await self._expect_stored("appTheme", theme.stored_value)
 
-    def wait_for_profile_feedback(self) -> "ProfilePage":
-        predicate = (
-            "() => {"
-            "const lower = document.body.innerText.toLowerCase();"
-            f"return {_keywords_js(STATUS_FEEDBACK_KEYWORDS)}.some(k => lower.includes(k));"
-            "}"
-        )
-        self._run(self._page.waitForFunction(predicate, {"timeout": 30_000}))
-        return self
+    async def expect_stored_language(self, language: LanguageOption) -> None:
+        await self._expect_stored("appLanguage", language.stored_value)
 
-    def close_profile_feedback(self) -> "ProfilePage":
-        self.click(self.ACCEPT)
-        predicate = (
-            "() => {"
-            "const lower = document.body.innerText.toLowerCase();"
-            f"return !{_keywords_js(STATUS_FEEDBACK_KEYWORDS)}.some(k => lower.includes(k));"
-            "}"
-        )
-        self._run(self._page.waitForFunction(predicate, {"timeout": 30_000}))
-        return self
+    async def _expect_stored(self, key: str, value: str) -> None:
+        async def stored() -> bool:
+            return await self.page.evaluate("(k) => window.localStorage.getItem(k)", key) == value
 
-    def open_delete_account_dialog(self) -> "ProfilePage":
-        self.click_last_visible(self.DELETE_ACCOUNT)
-        self.wait_for(self.CONFIRM_DELETE)
-        return self
-
-    def cancel_delete_account(self) -> "ProfilePage":
-        self.click(self.CANCEL)
-        predicate = (
-            "() => {"
-            "const text = document.body.innerText;"
-            "return !text.includes('Sí, eliminar') && !text.includes('Yes, delete');"
-            "}"
-        )
-        self._run(self._page.waitForFunction(predicate, {"timeout": 30_000}))
-        return self
-
-    # ── Internals ────────────────────────────────────────────────────────
-
-    def _choose_theme(self, es: str, en: str, stored_value: str) -> "ProfilePage":
-        self._select_option(es, en, last=False)
-        self._wait_for_stored_value("appTheme", stored_value)
-        return self
-
-    def _select_option(self, es: str, en: str, last: bool) -> None:
-        locator = _any_interactive_text(es, en)
-        elements = self._find_all(locator)
-        visible = [element for element in elements if self._run(element.boundingBox()) is not None]
-        if not visible:
-            raise AssertionError(f"No visible option matching '{es}'/'{en}'")
-        target = visible[-1] if last else visible[0]
-        self._run(target.click())
-
-    def _wait_for_stored_value(self, key: str, expected: str) -> None:
-        predicate = f"() => window.localStorage.getItem('{key}') === '{expected}'"
-        self._run(self._page.waitForFunction(predicate, {"timeout": 30_000}))
-
-    def _stored_value(self, key: str):
-        return self._run(self._page.evaluate("(k) => window.localStorage.getItem(k)", key))
+        await self.wait_until(stored, f"localStorage[{key}] to be {value!r}")

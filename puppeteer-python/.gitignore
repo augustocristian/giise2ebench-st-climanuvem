@@ -186,14 +186,15 @@ env.bak/
 venv.bak/
 
 ######################
-# Puppeteer / pyppeteer
+# Puppeteer bridge (Node)
 ######################
-# Local Chromium revision(s) downloaded by pyppeteer on first launch.
-.local-chromium/
-.pyppeteer/
+# The bridge uses the system Chrome; no browser is downloaded.
+node_modules/
 
 ######################
 # Test suite output
 ######################
 screenshots/
+reports/
+results/
 *.local.csv

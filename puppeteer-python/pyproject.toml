@@ -9,13 +9,11 @@ packages = [{ include = "climanuvem" }]
 name = "puppeteer-st-climanuvem"
 version = "1.0.0"
 dependencies = [
-    "setuptools==82.0.1",
-    "pytest==9.0.3",
+    "requests==2.34.2",
+    "pytest==9.1.1",
+    "pytest-asyncio==1.4.1.post1",
     "pytest-cov==7.1.0",
     "flake8==7.3.0",
-    "pyppeteer>=2.0.0,<3.0.0",
-    "requests>=2.32.5,<3.0.0",
-    "pillow>=11.0.0,<13.0.0",
 ]
 
 requires-python = ">=3.12,<4.0"
@@ -27,9 +25,10 @@ maintainers = [
     { name = "Cristian Augusto", email = "augustocristian@uniovi.es" }
 ]
 
-description = "Puppeteer (pyppeteer) + Python end-to-end test suite for EPI-ClimaNuvem"
+description = "Puppeteer (via a Node bridge) + Python E2E and API test suite for EPI-ClimaNuvem"
 readme = "README.md"
-license = { file = "LICENSE" }
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 
 [project.urls]
 Homepage = "https://gitlab.com/HP-SCDS/Observatorio/2025-2026/climanuvem/epi-climanuvem"
@@ -37,7 +36,16 @@ Repository = "https://github.com/augustocristian/giise2ebench-st-climanuvem"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--cov=climanuvem --cov-report=xml:coverage.xml --cov-branch"
+addopts = "--cov=climanuvem --cov-report=xml:coverage.xml --cov-branch --strict-markers -ra"
+markers = [
+    "api: API-only tests (tests/api) - no browser required.",
+    "e2e: browser tests (tests/e2e) - require Chrome and the Node bridge.",
+    "bridge: smoke tests of the Python-Node Puppeteer bridge (tests/bridge).",
+]
+asyncio_mode = "auto"
+# One loop for the whole session so the session-scoped browser can be shared.
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
 #Configurations related to logging in testing, first
 log_cli = true
 log_cli_level = "INFO"

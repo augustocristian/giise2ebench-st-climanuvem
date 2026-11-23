@@ -1,132 +1,115 @@
-# -*- coding: utf-8 -*-
-"""Abstract base for all Page Objects. Mirrors selenium-java's
-``BasePage``: centralises the page handle and the primitives every page
-needs — :meth:`is_present`, :meth:`click`, and :meth:`fill` — plus shared
-locator factories. Subclasses declare their own locators as class-level
-constants and expose typed, readable methods that either return a
-bool/value or the next page.
+"""Base class of the page objects.
 
-Pyppeteer's ``waitForXPath``/``waitForSelector`` with ``visible=True``
-already wait-and-return the first visible match, so there is no need for
-the JS-dispatched-click plumbing Selenium's WebDriver required — a real
-``ElementHandle.click()`` performs a trusted-enough mouse click that React
-Native Web's event handlers pick up natively.
+Concrete pages locate elements only through ``TestId`` selectors. Puppeteer's
+Locators auto-wait, so pages call them directly. ``__init__`` cannot be a
+coroutine, so every page is built with the async ``create`` factory, which
+waits for the page-specific readiness condition.
 """
-import logging
-from collections import namedtuple
+import asyncio
+import re
+import time
+from collections.abc import Awaitable, Callable
+from typing import Self
 
-logger = logging.getLogger(__name__)
+from climanuvem.browser import ElementTimeoutError, Locator, Page, TestId
+from climanuvem.common.test_ids import Dialog
 
-TIMEOUT_MS = 30_000
-
-Locator = namedtuple("Locator", ["kind", "value"])
+POLL_INTERVAL_S = 0.1
+DEFAULT_WAIT_S = 10.0
 
 
 class BasePage:
-    def __init__(self, session):
-        self._session = session
-        self._page = session.page
+    # Test id of this screen's feedback dialog (its ``*-feedback`` card); set by pages that have one.
+    FEEDBACK_ID: str | None = None
 
-    def _run(self, coro):
-        return self._session.run(coro)
+    def __init__(self, page: Page) -> None:
+        self.page = page
 
-    # ── Shared locator factories ────────────────────────────────────────
+    @classmethod
+    async def create(cls, page: Page) -> Self:
+        """Builds the page object, then waits until it is ready."""
+        instance = cls(page)
+        await instance._wait_ready()
+        return instance
+
+    async def _wait_ready(self) -> None:
+        """Page-specific readiness wait; none by default."""
+
+    # Shared low-level helpers
+
+    def locator(self, selector: str) -> Locator:
+        return self.page.locator(selector)
+
+    async def fill(self, selector: str, text: str) -> None:
+        await self.locator(selector).fill(text)
+
+    async def click(self, selector: str) -> None:
+        await self.locator(selector).click()
+
+    async def is_visible(self, selector: str) -> bool:
+        return await self.locator(selector).is_visible()
 
     @staticmethod
-    def by_text(text: str) -> Locator:
-        """XPath: any element whose full text equals `text` (innermost match only)."""
-        escaped = text.replace("'", "\\'")
-        return Locator("xpath", f"//*[normalize-space(.)='{escaped}' and not(.//*[normalize-space(.)='{escaped}'])]")
+    def any_of(*selectors: str) -> str:
+        """Selector matching any of the given ones (CSS union)."""
+        return ", ".join(selectors)
 
     @staticmethod
-    def by_partial_text(text: str) -> Locator:
-        """XPath: any element whose text contains `text` as a substring (innermost match only)."""
-        escaped = text.replace("'", "\\'")
-        return Locator(
-            "xpath",
-            f"//*[contains(normalize-space(.),'{escaped}') and not(.//*[contains(normalize-space(.),'{escaped}')])]",
-        )
+    async def text_or_empty(locator: Locator) -> str:
+        """Text of the first match, or an empty string when there is none."""
+        if await locator.count() == 0:
+            return ""
+        return await locator.first().text()
 
     @staticmethod
-    def by_xpath(expression: str) -> Locator:
-        return Locator("xpath", expression)
+    async def wait_hidden(locator: Locator) -> None:
+        """Waits until the locator is hidden or absent."""
+        await locator.first().wait_for("hidden")
 
     @staticmethod
-    def input_by_placeholder(placeholder: str) -> Locator:
-        """CSS: <input> with the given placeholder."""
-        return Locator("css", f'input[placeholder="{placeholder}"]')
+    async def wait_until(
+        condition: Callable[[], Awaitable[bool]],
+        description: str,
+        timeout_s: float = DEFAULT_WAIT_S,
+    ) -> None:
+        """Polls an async condition until it holds or the timeout expires."""
+        deadline = time.monotonic() + timeout_s
+        while not await condition():
+            if time.monotonic() > deadline:
+                raise ElementTimeoutError(f"Timed out after {timeout_s}s waiting for: {description}")
+            await asyncio.sleep(POLL_INTERVAL_S)
 
-    # ── Element lookup ───────────────────────────────────────────────────
+    async def wait_for_count(self, locator: Locator, expected: int) -> None:
+        """Waits until the locator matches exactly ``expected`` elements."""
+        async def matches() -> bool:
+            return await locator.count() == expected
 
-    def _find_all(self, locator: Locator):
-        if locator.kind == "xpath":
-            return self._run(self._page.xpath(locator.value))
-        return self._run(self._page.querySelectorAll(locator.value))
+        await self.wait_until(matches, f"{locator} to match {expected} elements")
 
-    def _last_visible(self, elements, required: bool):
-        target = None
-        for element in elements:
-            if self._run(element.boundingBox()) is not None:
-                target = element
-        if target is None and required:
-            raise AssertionError("No visible element found among matches")
-        return target
+    # Feedback dialog (shared StatusModal rendered inside the screen's ``*-feedback`` card)
 
-    # ── Queries ──────────────────────────────────────────────────────────
+    def _feedback_part(self, part_id: str) -> Locator:
+        if self.FEEDBACK_ID is None:
+            raise NotImplementedError(f"{type(self).__name__} has no feedback dialog")
+        return self.locator(TestId.of(self.FEEDBACK_ID)).within(TestId.of(part_id))
 
-    def is_present(self, locator: Locator) -> bool:
-        """True when at least one element matching `locator` exists in the DOM."""
-        return len(self._find_all(locator)) > 0
+    async def expect_feedback(self, title: str, message: str | re.Pattern[str]) -> None:
+        """Waits for the feedback dialog with exactly this title and a message containing the text or matching the
+        pattern; raises ``AssertionError`` showing what the dialog displayed otherwise."""
+        shown: dict[str, str] = {}
 
-    def is_visible(self, locator: Locator) -> bool:
-        """True when any element matching `locator` is currently visible."""
-        return self._last_visible(self._find_all(locator), required=False) is not None
+        async def matches() -> bool:
+            shown["title"] = (await self.text_or_empty(self._feedback_part(Dialog.TITLE))).strip()
+            shown["message"] = (await self.text_or_empty(self._feedback_part(Dialog.MESSAGE))).strip()
+            found = message.search(shown["message"]) if isinstance(message, re.Pattern) else message in shown["message"]
+            return shown["title"] == title and bool(found)
 
-    def input_value(self, locator: Locator) -> str:
-        """Returns the current `value` attribute of the (first) matching input element."""
-        element = self._find_all(locator)[0]
-        return self._run(self._page.evaluate("el => el.value", element))
+        try:
+            await self.wait_until(matches, f"feedback dialog {title!r} / {message!r}")
+        except ElementTimeoutError as error:
+            raise AssertionError(f"{error}; the dialog showed {shown or 'nothing'}") from error
 
-    def has_invalid_required_input(self) -> bool:
-        """True when any required input currently fails browser-side validation."""
-        script = (
-            "() => Array.from(document.querySelectorAll('input'))"
-            ".filter(el => el.required && !el.checkValidity()).length"
-        )
-        return self._run(self._page.evaluate(script)) > 0
-
-    def body_text_contains_any(self, keywords) -> bool:
-        text = self._run(self._page.evaluate("() => document.body.innerText")).lower()
-        return any(keyword.lower() in text for keyword in keywords)
-
-    # ── Actions ──────────────────────────────────────────────────────────
-
-    def wait_for(self, locator: Locator, timeout: int = TIMEOUT_MS):
-        """Waits for `locator` to be visible and returns its ElementHandle."""
-        options = {"visible": True, "timeout": timeout}
-        if locator.kind == "xpath":
-            return self._run(self._page.waitForXPath(locator.value, options))
-        return self._run(self._page.waitForSelector(locator.value, options))
-
-    def click(self, locator: Locator) -> None:
-        """Waits for `locator` to be visible and clicks it (first visible match)."""
-        element = self.wait_for(locator)
-        self._run(element.click())
-
-    def click_last_visible(self, locator: Locator) -> None:
-        """Waits for `locator`, then clicks the *last* visible match among all of them —
-        used where React Native Web renders multiple candidates and only the last one is
-        the "real" interactive one (e.g. submit buttons, duplicated "Sistema" options)."""
-        self.wait_for(locator)
-        target = self._last_visible(self._find_all(locator), required=True)
-        self._run(target.click())
-
-    def fill(self, locator: Locator, text: str) -> None:
-        """Waits for `locator`, clears it, and types `text`."""
-        element = self.wait_for(locator)
-        self._run(element.click())
-        self._run(self._page.keyboard.down("Control"))
-        self._run(self._page.keyboard.press("KeyA"))
-        self._run(self._page.keyboard.up("Control"))
-        self._run(self._page.keyboard.press("Backspace"))
-        self._run(element.type(text))
+    async def dismiss_feedback(self) -> None:
+        """Accepts the feedback dialog and waits until it closes."""
+        await self._feedback_part(Dialog.ACCEPT_BUTTON).click()
+        await self.wait_hidden(self.locator(TestId.of(self.FEEDBACK_ID)))

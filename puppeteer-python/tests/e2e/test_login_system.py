@@ -1,82 +1,53 @@
-# -*- coding: utf-8 -*-
-"""Browser system tests for the login functionality, derived from the same
-Base Choice table as selenium-java's ``TestLoginSystem``.
+"""Browser system tests for the login functionality, derived from the Base Choice table of
+selenium-java's ``TestLoginSystem``. Existing-account scenarios run once per ``login_user`` account."""
+import re
 
-Each Java ``Assertions.assertAll(...)`` bundle becomes a ``self.subTest(...)``
-block here — Python's built-in equivalent: a subTest failure is recorded and
-the test continues, so every sub-check still runs and is reported
-individually instead of stopping at the first failure.
-"""
-import logging
-import unittest
+from climanuvem.common import TestAccount, TestAccounts
+from climanuvem.pages import HomePage, LoginPage
 
-from climanuvem.common.browser_session import BrowserTestCase
-
-logger = logging.getLogger(__name__)
+ERROR_TITLE = "Error"
+INVALID_EMAIL_MESSAGE = "Please enter a valid email address."
+# Real Firebase answers with a generic message; the emulator is more specific (wrong password / unknown email).
+BAD_CREDENTIALS_MESSAGE = re.compile(
+    "Incorrect credentials|password is incorrect|No account exists|Authentication error")
 
 
-class TestLoginSystem(BrowserTestCase):
-
-    def test_guest_login_reaches_home(self):
-        """BASE - Guest login reaches Home"""
-        logger.debug("Starting the test: " + self._testMethodName)
-        home = self.login_as_guest()
-        assert home.is_welcome_message_visible(), "Guest login must reach the Home screen"
-        logger.debug("Ending the test: " + self._testMethodName)
-
-    def test_google_login_provider_flow_is_available(self):
-        """BASE - Google login provider flow is available"""
-        logger.debug("Starting the test: " + self._testMethodName)
-        login = self.on_welcome_page().click_login_button()
-
-        with self.subTest("Google login option must be available"):
-            assert login.is_google_login_present()
-        with self.subTest("Clicking Google login must start the provider flow"):
-            assert login.click_google_login_starts_provider()
-        logger.debug("Ending the test: " + self._testMethodName)
-
-    def test_existing_email_with_correct_password_reaches_home(self):
-        """2 - Existing email with correct password reaches Home"""
-        logger.debug("Starting the test: " + self._testMethodName)
-        for account in self.test_accounts.login_accounts():
-            with self.subTest(account=str(account)):
-                home = (
-                    self.on_welcome_page()
-                    .click_login_button()
-                    .login(account.email, account.password)
-                    .wait_for_home()
-                )
-                assert home.is_welcome_message_visible(), (
-                    "Existing email with correct password must reach the Home screen"
-                )
-                home.click_logout()  # leave a clean Welcome screen for the next account/test
-        logger.debug("Ending the test: " + self._testMethodName)
-
-    def test_invalid_email_password_login_attempts_are_rejected(self):
-        """3 - Invalid email/password login attempts are rejected"""
-        logger.debug("Starting the test: " + self._testMethodName)
-        unknown = self.test_accounts.unknown_account()
-
-        for account in self.test_accounts.login_accounts():
-            login = self.on_welcome_page().click_login_button()
-
-            with self.subTest(account=str(account), case="existing email, empty password"):
-                self._assert_login_rejected(login, account.email, "")
-            with self.subTest(account=str(account), case="unknown email, some password"):
-                self._assert_login_rejected(login, unknown.email, unknown.password)
-            with self.subTest(account=str(account), case="empty credentials"):
-                self._assert_login_rejected(login, "", "")
-            with self.subTest(account=str(account), case="existing email, incorrect password"):
-                self._assert_login_rejected(login, account.email, unknown.password)
-        logger.debug("Ending the test: " + self._testMethodName)
-
-    def _assert_login_rejected(self, login_page, email, password):
-        login_page.login(email, password)
-        try:
-            assert login_page.wait_for_login_failure().has_login_error_or_validation()
-        finally:
-            login_page.close_login_feedback_if_present()
+async def assert_login_rejected(login: LoginPage, email: str, password: str, message: str | re.Pattern[str]) -> None:
+    await login.submit_credentials(email, password)
+    await login.expect_feedback(ERROR_TITLE, message)
+    await login.dismiss_feedback()
 
 
-if __name__ == '__main__':
-    unittest.main()
+async def test_guest_login_reaches_home(home_page: HomePage) -> None:
+    """BASE - Guest login reaches Home"""
+    assert await home_page.is_welcome_message_visible()
+
+
+async def test_google_login_provider_flow_is_available(login_page: LoginPage) -> None:
+    """BASE - Google login provider flow is available"""
+    assert await login_page.is_google_login_visible()
+    assert await login_page.start_google_login(), "Clicking Google login must start the provider flow"
+
+
+async def test_existing_email_with_correct_password_reaches_home(
+    login_page: LoginPage, login_account: TestAccount
+) -> None:
+    """2 - Existing email with correct password reaches Home"""
+    home = await login_page.login(login_account.email, login_account.password)
+    assert await home.is_welcome_message_visible()
+
+
+async def test_invalid_email_password_login_attempts_are_rejected(
+    login_page: LoginPage, login_account: TestAccount, accounts: TestAccounts
+) -> None:
+    """3 - Invalid email/password login attempts are rejected"""
+    unknown = accounts.unknown_account()
+
+    # Existing email with empty password
+    await assert_login_rejected(login_page, login_account.email, "", BAD_CREDENTIALS_MESSAGE)
+    # Unknown email
+    await assert_login_rejected(login_page, unknown.email, unknown.password, BAD_CREDENTIALS_MESSAGE)
+    # Empty credentials
+    await assert_login_rejected(login_page, "", "", INVALID_EMAIL_MESSAGE)
+    # Existing email with incorrect password
+    await assert_login_rejected(login_page, login_account.email, unknown.password, BAD_CREDENTIALS_MESSAGE)

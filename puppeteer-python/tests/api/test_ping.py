@@ -1,36 +1,23 @@
-# -*- coding: utf-8 -*-
-"""API tests for the public health-check endpoints that require no
-authentication, mirroring selenium-java's ``TestApiPing``:
-  - GET /ping  — liveness probe
-  - GET /      — service status response
-"""
-import logging
-import unittest
+"""Public health-check endpoints (no authentication) and the removed legacy routes."""
+import pytest
 
-from climanuvem.common.api_client import ApiTestCase
-
-logger = logging.getLogger(__name__)
+from climanuvem.common import ApiClient
 
 
-class TestApiPing(ApiTestCase):
+def test_ping_returns_pong(api: ApiClient) -> None:
+    response = api.get(api.api_url("/ping"), auth=False)
 
-    def test_ping_endpoint(self):
-        logger.debug("Starting the test: " + self._testMethodName)
-        assert self.get_status(self.root_url("/ping")) == 200
-
-        body = self.get_json(self.root_url("/ping"))
-        assert body.get("ping") == "pong"
-        logger.debug("Ending the test: " + self._testMethodName)
-
-    def test_root_endpoint(self):
-        logger.debug("Starting the test: " + self._testMethodName)
-        assert self.get_status(self.root_url("/")) == 200
-
-        body = self.get_json(self.root_url("/"))
-        assert body.get("service") == "ClimaNuvem API"
-        assert body.get("status") == "ok"
-        logger.debug("Ending the test: " + self._testMethodName)
+    assert response.status_code == 200
+    assert response.json()["ping"] == "pong"
 
 
-if __name__ == '__main__':
-    unittest.main()
+@pytest.mark.parametrize("path", ["/", ""], ids=["with_trailing_slash", "without_trailing_slash"])
+def test_root_returns_service_status(api: ApiClient, path: str) -> None:
+    response = api.get(api.api_url(path), auth=False)
+
+    assert response.status_code == 200
+    assert response.json() == {"service": "ClimaNuvem API", "status": "ok"}
+
+
+def test_legacy_ping_returns_404(api: ApiClient) -> None:
+    assert api.get("/ping", auth=False).status_code == 404

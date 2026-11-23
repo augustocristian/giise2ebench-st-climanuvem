@@ -1,57 +1,45 @@
-# -*- coding: utf-8 -*-
-"""Page Object for the Home screen — shown after a successful login.
-Constructing this object waits until both the welcome message and the
-"Analizar Imagen" quick-action card are visible. Mirrors selenium-java's
-``HomePage``.
-"""
+"""Home screen, shown after a successful login."""
+from typing import TYPE_CHECKING
+
+from climanuvem.browser import TestId
+from climanuvem.common.test_ids import Home
 from climanuvem.pages.base_page import BasePage
+
+if TYPE_CHECKING:  # the screens link to each other, so they are imported lazily at runtime
+    from climanuvem.pages.capture_page import CapturePage
+    from climanuvem.pages.profile_page import ProfilePage
+    from climanuvem.pages.welcome_page import WelcomePage
 
 
 class HomePage(BasePage):
-    WELCOME_MESSAGE = BasePage.by_partial_text("Bienvenido")
-    ANALYZE_CARD = BasePage.by_partial_text("Analizar Imagen")
-    HISTORY_CARD = BasePage.by_partial_text("Historial")
-    LOGOUT_CARD = BasePage.by_partial_text("Cerrar Sesión")
+    WELCOME = TestId.of(Home.WELCOME)
+    ANALYZE_CARD = TestId.of(Home.ANALYZE_CARD)
+    LOGOUT_CARD = TestId.of(Home.LOGOUT_CARD)
 
-    def __init__(self, session):
-        super().__init__(session)
-        self.wait_for(self.WELCOME_MESSAGE)
-        self.wait_for(self.ANALYZE_CARD)
+    async def _wait_ready(self) -> None:
+        await self.locator(self.WELCOME).wait_for("visible")
+        await self.locator(self.ANALYZE_CARD).wait_for("visible")
 
-    # ── Queries ──────────────────────────────────────────────────────────
+    async def is_welcome_message_visible(self) -> bool:
+        return await self.is_visible(self.WELCOME)
 
-    def is_welcome_message_visible(self) -> bool:
-        return self.is_present(self.WELCOME_MESSAGE)
-
-    def is_analyze_card_visible(self) -> bool:
-        return self.is_present(self.ANALYZE_CARD)
-
-    def is_history_card_visible(self) -> bool:
-        return self.is_present(self.HISTORY_CARD)
-
-    def is_logout_card_visible(self) -> bool:
-        return self.is_present(self.LOGOUT_CARD)
-
-    # ── Actions ──────────────────────────────────────────────────────────
-
-    def click_analyze_image(self):
-        """Navigates to the Capture screen."""
-        from climanuvem.pages.capture_page import CapturePage
-
-        self.click(self.ANALYZE_CARD)
-        return CapturePage(self._session)
-
-    def click_profile(self):
-        """Opens Profile through the router URL, avoiding flaky React Native Web card clicks."""
+    async def open_profile(self) -> "ProfilePage":
+        """Opens Profile through the welcome banner, which navigates there."""
         from climanuvem.pages.profile_page import ProfilePage
 
-        origin = self._run(self._page.evaluate("() => window.location.origin"))
-        self._run(self._page.goto(f"{origin}/profile"))
-        return ProfilePage(self._session)
+        await self.click(self.WELCOME)
+        return await ProfilePage.create(self.page)
 
-    def click_logout(self):
-        """Clicks "Cerrar Sesión" and waits for the Welcome screen to re-appear."""
+    async def open_capture(self) -> "CapturePage":
+        """Opens the image capture screen through the analyze card."""
+        from climanuvem.pages.capture_page import CapturePage
+
+        await self.click(self.ANALYZE_CARD)
+        return await CapturePage.create(self.page)
+
+    async def logout(self) -> "WelcomePage":
+        """Logs out and waits for the Welcome screen."""
         from climanuvem.pages.welcome_page import WelcomePage
 
-        self.click(self.LOGOUT_CARD)
-        return WelcomePage(self._session)
+        await self.click(self.LOGOUT_CARD)
+        return await WelcomePage.create(self.page)

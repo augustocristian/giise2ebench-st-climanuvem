@@ -1,35 +1,29 @@
-# -*- coding: utf-8 -*-
-"""Page Object for the Capture (image-upload) screen. Constructing this
-object waits until the "Tomar Foto" card is visible. Mirrors
-selenium-java's ``CapturePage``.
-"""
+"""Page object of the Capture screen, where an analysis starts (camera, gallery, explainability)."""
+from climanuvem.browser import TestId
+from climanuvem.common.test_ids import Capture
 from climanuvem.pages.base_page import BasePage
 
 
 class CapturePage(BasePage):
-    CAMERA_CARD = BasePage.by_partial_text("Tomar Foto")
-    GALLERY_CARD = BasePage.by_partial_text("Galería")
-    EXPLAINABILITY = BasePage.by_partial_text("Explicabilidad")
-    FORMATS_INFO = BasePage.by_partial_text("Formatos soportados")
-    PAGE_HEADER = BasePage.by_partial_text("Analizar Imagen")
+    FEEDBACK_ID = Capture.FEEDBACK
 
-    def __init__(self, session):
-        super().__init__(session)
-        self.wait_for(self.CAMERA_CARD)
+    async def _wait_ready(self) -> None:
+        await self.locator(TestId.of(Capture.HEADER)).wait_for("visible")
 
-    # ── Queries ──────────────────────────────────────────────────────────
+    async def is_camera_option_visible(self) -> bool:
+        return await self.is_visible(TestId.of(Capture.CAMERA_CARD))
 
-    def is_camera_option_visible(self) -> bool:
-        return self.is_present(self.CAMERA_CARD)
+    async def is_gallery_option_visible(self) -> bool:
+        return await self.is_visible(TestId.of(Capture.GALLERY_CARD))
 
-    def is_gallery_option_visible(self) -> bool:
-        return self.is_present(self.GALLERY_CARD)
+    async def is_explainability_visible(self) -> bool:
+        return await self.is_visible(TestId.of(Capture.EXPLAINABILITY))
 
-    def is_explainability_visible(self) -> bool:
-        return self.is_present(self.EXPLAINABILITY)
+    async def is_formats_info_visible(self) -> bool:
+        return await self.is_visible(TestId.of(Capture.FORMATS_INFO))
 
-    def is_formats_info_visible(self) -> bool:
-        return self.is_present(self.FORMATS_INFO)
+    async def is_explainability_warning_visible(self) -> bool:
+        return await self.is_visible(TestId.of(Capture.EXPLAINABILITY_WARNING))
 
-    def is_page_header_visible(self) -> bool:
-        return self.is_present(self.PAGE_HEADER)
+    async def toggle_explainability(self) -> None:
+        await self.click(TestId.of(Capture.EXPLAINABILITY_SWITCH))

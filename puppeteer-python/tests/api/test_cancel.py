@@ -1,52 +1,37 @@
-# -*- coding: utf-8 -*-
-"""API tests for the cancellation endpoint, mirroring selenium-java's
-``TestApiCancel``:
-  - PATCH /analysis/{id}/cancel — cancel an in-progress analysis
-Runs with DISABLE_WORKER=true so uploaded analyses stay in 'analyzing'
-status, making cancellation deterministic without Ollama.
+"""PATCH /api/v1/analyses/{id} with {"status": "cancelled"}.
+
+Runs with DISABLE_WORKER=true so analyses stay 'analyzing', which makes cancellation deterministic without Ollama.
 """
-import logging
-import unittest
-
-from climanuvem.common.api_client import ApiTestCase
-
-logger = logging.getLogger(__name__)
-
-NON_EXISTENT_ID = 2147483647  # Integer.MAX_VALUE, mirroring the Java fixture
+from climanuvem.common import ApiClient
+from climanuvem.common.api_client import NON_EXISTENT_ID
+from tests.api.assertions import assert_problem
 
 
-class TestApiCancel(ApiTestCase):
+def test_cancel_returns_updated_analysis(api: ApiClient) -> None:
+    analysis_id = api.create_analysis("Cancel Me City")
 
-    def test_cancel_analysis_returns_200(self):
-        logger.debug("Starting the test: " + self._testMethodName)
-        analysis_id = self.create_analysis("Cancel Me City")
+    response = api.patch_status(api.analysis_url(analysis_id), "cancelled")
 
-        status = self.patch_status_auth(self.analysis_url(f"/{analysis_id}/cancel"))
-        assert status == 200
-        logger.debug("Ending the test: " + self._testMethodName)
-
-    def test_cancel_already_cancelled_returns_400(self):
-        logger.debug("Starting the test: " + self._testMethodName)
-        analysis_id = self.create_analysis("Double Cancel City")
-
-        self.patch_status_auth(self.analysis_url(f"/{analysis_id}/cancel"))
-        second_status = self.patch_status_auth(self.analysis_url(f"/{analysis_id}/cancel"))
-        assert second_status == 400
-        logger.debug("Ending the test: " + self._testMethodName)
-
-    def test_cancel_non_existent_analysis_returns_404(self):
-        logger.debug("Starting the test: " + self._testMethodName)
-        status = self.patch_status_auth(self.analysis_url(f"/{NON_EXISTENT_ID}/cancel"))
-        assert status == 404
-        logger.debug("Ending the test: " + self._testMethodName)
-
-    def test_cancel_requires_auth(self):
-        logger.debug("Starting the test: " + self._testMethodName)
-        analysis_id = self.create_analysis("Auth Check City")
-        status = self.get_status(self.analysis_url(f"/{analysis_id}/cancel"))
-        assert status == 403
-        logger.debug("Ending the test: " + self._testMethodName)
+    assert response.status_code == 200, response.text
+    assert response.json()["id"] == analysis_id
+    assert response.json()["status"] == "cancelled"
 
 
-if __name__ == '__main__':
-    unittest.main()
+def test_cancel_twice_returns_409(api: ApiClient) -> None:
+    url = api.analysis_url(api.create_analysis("Double Cancel City"))
+    api.patch_status(url, "cancelled")
+
+    assert_problem(api.patch_status(url, "cancelled"), 409, "ANALYSIS_NOT_CANCELLABLE")
+
+
+def test_cancel_unknown_returns_404(api: ApiClient) -> None:
+    assert_problem(api.patch_status(api.analysis_url(NON_EXISTENT_ID), "cancelled"), 404, "ANALYSIS_NOT_FOUND")
+
+
+def test_patch_with_other_status_returns_422_and_leaves_analysis_untouched(api: ApiClient) -> None:
+    url = api.analysis_url(api.create_analysis("Bad Status City"))
+
+    response = api.patch_status(url, "completed")
+
+    assert response.status_code == 422
+    assert api.get(url).json()["status"] == "analyzing"

@@ -1,57 +1,36 @@
-# -*- coding: utf-8 -*-
-"""API tests for the deletion endpoints, mirroring selenium-java's
-``TestApiDelete``:
-  - DELETE /analysis/{id}       — remove a single analysis (HTTP 200 or 404)
-  - DELETE /analysis/user-data  — remove all analyses for the user (HTTP 200)
-"""
-import logging
-import unittest
-
-from climanuvem.common.api_client import ApiTestCase
-
-logger = logging.getLogger(__name__)
-
-NON_EXISTENT_ID = 2147483647  # Integer.MAX_VALUE, mirroring the Java fixture
+"""DELETE /api/v1/analyses/{id} and DELETE /api/v1/analyses (both 204 with an empty body)."""
+from climanuvem.common import ApiClient
+from climanuvem.common.api_client import NON_EXISTENT_ID
+from tests.api.assertions import assert_problem
 
 
-class TestApiDelete(ApiTestCase):
+def test_delete_single_returns_204_and_analysis_disappears(api: ApiClient) -> None:
+    analysis_id = api.create_analysis("Delete Me City")
 
-    def test_delete_single_analysis_returns_200(self):
-        logger.debug("Starting the test: " + self._testMethodName)
-        analysis_id = self.create_analysis("Delete Me City")
+    response = api.delete(api.analysis_url(analysis_id))
 
-        status = self.delete_status_auth(self.analysis_url(f"/{analysis_id}"))
-        assert status == 200
-
-        history = self.get_json_auth(self.analysis_url("/history"))
-        assert not self.contains_by_field(history, "id", analysis_id)
-        logger.debug("Ending the test: " + self._testMethodName)
-
-    def test_delete_non_existent_analysis_returns_404(self):
-        logger.debug("Starting the test: " + self._testMethodName)
-        status = self.delete_status_auth(self.analysis_url(f"/{NON_EXISTENT_ID}"))
-        assert status == 404
-        logger.debug("Ending the test: " + self._testMethodName)
-
-    def test_delete_user_data_clears_history(self):
-        logger.debug("Starting the test: " + self._testMethodName)
-        self.create_analysis("Bulk Delete A")
-        self.create_analysis("Bulk Delete B")
-
-        status = self.delete_all_user_data()
-        assert status == 200
-
-        history = self.get_json_auth(self.analysis_url("/history"))
-        assert history == []
-        logger.debug("Ending the test: " + self._testMethodName)
-
-    def test_delete_user_data_when_empty_returns_200(self):
-        logger.debug("Starting the test: " + self._testMethodName)
-        self.delete_all_user_data()
-        status = self.delete_all_user_data()
-        assert status == 200
-        logger.debug("Ending the test: " + self._testMethodName)
+    assert response.status_code == 204
+    assert response.content == b""
+    assert analysis_id not in [entry["id"] for entry in api.list_analyses()], "Deleted analysis must not be listed"
+    assert api.get(api.analysis_url(analysis_id)).status_code == 404
 
 
-if __name__ == '__main__':
-    unittest.main()
+def test_delete_unknown_returns_404(api: ApiClient) -> None:
+    assert_problem(api.delete(api.analysis_url(NON_EXISTENT_ID)), 404, "ANALYSIS_NOT_FOUND")
+
+
+def test_delete_collection_clears_history(api: ApiClient) -> None:
+    api.create_analysis("Bulk Delete A")
+    api.create_analysis("Bulk Delete B")
+
+    response = api.delete(api.analyses_url())
+
+    assert response.status_code == 204
+    assert response.content == b""
+    assert api.list_analyses() == []
+
+
+def test_delete_collection_when_empty_returns_204(api: ApiClient) -> None:
+    api.delete_all_analyses()
+
+    assert api.delete(api.analyses_url()).status_code == 204
