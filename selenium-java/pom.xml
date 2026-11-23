@@ -25,7 +25,7 @@
 
 		<junit-jupiter-api.version>6.0.3</junit-jupiter-api.version>
 
-		<selenium-java.version>4.44.0</selenium-java.version>
+		<selenium-java.version>4.53.0</selenium-java.version>
 
 		<retorch-tool.version>1.2.0</retorch-tool.version>
 
