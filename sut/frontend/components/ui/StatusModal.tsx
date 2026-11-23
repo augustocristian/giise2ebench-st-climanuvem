@@ -16,9 +16,12 @@ interface StatusModalProps {
   readonly onCancel?: () => void;
   readonly confirmText?: string;
   readonly cancelText?: string;
+  readonly testID?: string;
+  readonly confirmTestID?: string;
+  readonly cancelTestID?: string;
 }
 
-export function StatusModal({ visible, type, title, message, onClose, onCancel, confirmText, cancelText }: StatusModalProps) {
+export function StatusModal({ visible, type, title, message, onClose, onCancel, confirmText, cancelText, testID = 'dialog', confirmTestID, cancelTestID }: StatusModalProps) {
   const { theme } = useTheme();
   const { t } = useTranslation();
   const styles = getStatusModalStyles(theme);
@@ -45,7 +48,7 @@ export function StatusModal({ visible, type, title, message, onClose, onCancel, 
       animationType="fade"
     >
       <View style={styles.overlay}>
-        <View style={styles.card}>
+        <View style={styles.card} testID={testID}>
           {type === 'loading' ? (
             <>
               <ActivityIndicator size="large" color={theme.colors.primary} />
@@ -57,20 +60,20 @@ export function StatusModal({ visible, type, title, message, onClose, onCancel, 
               <View style={styles.iconContainer}>
                 {getIcon()}
               </View>
-              <Text style={styles.title}>{title}</Text>
-              <Text style={styles.message}>{message}</Text>
+              <Text style={styles.title} testID="dialog-title">{title}</Text>
+              <Text style={styles.message} testID="dialog-message">{message}</Text>
               
               {type === 'confirm' ? (
                 <View style={{ flexDirection: 'row', width: '100%', gap: 10 }}>
-                  <TouchableOpacity style={[styles.button, { flex: 1, backgroundColor: 'transparent', borderWidth: 1, borderColor: theme.colors.border }]} onPress={onCancel || onClose}>
+                  <TouchableOpacity style={[styles.button, { flex: 1, backgroundColor: 'transparent', borderWidth: 1, borderColor: theme.colors.border }]} onPress={onCancel || onClose} testID={cancelTestID ?? 'dialog-cancel-button'}>
                     <Text style={[styles.buttonText, { color: theme.colors.text }]}>{cancelText ?? t('common.cancel')}</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={[styles.button, { flex: 1 }]} onPress={onClose}>
+                  <TouchableOpacity style={[styles.button, { flex: 1 }]} onPress={onClose} testID={confirmTestID ?? 'dialog-confirm-button'}>
                     <Text style={styles.buttonText}>{confirmText ?? t('common.accept')}</Text>
                   </TouchableOpacity>
                 </View>
               ) : (
-                <TouchableOpacity style={styles.button} onPress={onClose}>
+                <TouchableOpacity style={styles.button} onPress={onClose} testID="dialog-accept-button">
                   <Text style={styles.buttonText}>{t('common.accept')}</Text>
                 </TouchableOpacity>
               )}

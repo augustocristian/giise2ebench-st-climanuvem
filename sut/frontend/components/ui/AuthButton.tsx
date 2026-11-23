@@ -13,6 +13,7 @@ interface AuthButtonProps {
   style?: ViewStyle;
   textStyle?: TextStyle;
   disabled?: boolean;
+  testID?: string;
 }
 
 export const AuthButton = ({ 
@@ -23,7 +24,8 @@ export const AuthButton = ({
   icon, 
   style, 
   textStyle,
-  disabled 
+  disabled,
+  testID
 }: AuthButtonProps) => {
   const { theme } = useTheme();
   const styles = getAuthButtonStyles(theme);
@@ -46,6 +48,7 @@ export const AuthButton = ({
         style
       ]} 
       onPress={onPress}
+      testID={testID}
       accessibilityRole="button"
       disabled={loading || disabled}
     >

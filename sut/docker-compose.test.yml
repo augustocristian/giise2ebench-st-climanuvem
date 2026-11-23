@@ -40,7 +40,7 @@ services:
     build:
       context: ./frontend
       args:
-        # Test clients (Selenium, Cypress, ...) run on the host machine, so
+        # Test clients (Selenium, Cypress, Puppeteer, Playwright, ...) run on the host machine, so
         # localhost:8000 reaches the backend through Docker's port mapping.
         - EXPO_PUBLIC_BACKEND_URL=http://localhost:8000
         - EXPO_PUBLIC_DEFAULT_LANGUAGE=en

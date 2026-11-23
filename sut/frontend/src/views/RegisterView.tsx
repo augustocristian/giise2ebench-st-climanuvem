@@ -48,7 +48,7 @@ export function RegisterView({ controller }: RegisterViewProps) {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
       style={styles.container}
     >
-      <AppHeader onBack={handleNavigateToLogin} />
+      <AppHeader onBack={handleNavigateToLogin} backTestID="register-back-button" />
       
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <View style={styles.headerSection}>
@@ -59,6 +59,7 @@ export function RegisterView({ controller }: RegisterViewProps) {
         <View style={styles.formContainer}>
           <AuthInput
             icon="person-outline"
+            testID="register-username-input"
             placeholder={t('auth.username')}
             value={username}
             onChangeText={setUsername}
@@ -72,6 +73,7 @@ export function RegisterView({ controller }: RegisterViewProps) {
           <AuthInput
             ref={emailInputRef}
             icon="mail-outline"
+            testID="register-email-input"
             placeholder={t('auth.email')}
             value={email}
             onChangeText={setEmail}
@@ -85,6 +87,8 @@ export function RegisterView({ controller }: RegisterViewProps) {
           <AuthInput
             ref={passwordInputRef}
             icon="lock-closed-outline"
+            testID="register-password-input"
+            eyeTestID="register-password-toggle"
             placeholder={t('auth.password')}
             value={password}
             onChangeText={setPassword}
@@ -99,6 +103,8 @@ export function RegisterView({ controller }: RegisterViewProps) {
           <AuthInput
             ref={confirmPasswordInputRef}
             icon="shield-checkmark-outline"
+            testID="register-confirm-password-input"
+            eyeTestID="register-confirm-password-toggle"
             placeholder={t('auth.confirmPassword')}
             value={confirmPassword}
             onChangeText={setConfirmPassword}
@@ -115,16 +121,18 @@ export function RegisterView({ controller }: RegisterViewProps) {
             onPress={handleRegister} 
             loading={loading}
             style={styles.registerButton}
+            testID="register-submit-button"
           />
 
           <View style={styles.loginLink}>
             <Text style={styles.alreadyHaveAccountText}>{t('auth.haveAccount')}</Text>
-            <Text style={styles.linkText} onPress={handleNavigateToLogin}>{t('auth.doLogin')}</Text>
+            <Text style={styles.linkText} testID="register-login-link" onPress={handleNavigateToLogin}>{t('auth.doLogin')}</Text>
           </View>
         </View>
       </ScrollView>
 
       <StatusModal 
+        testID="register-feedback"
         visible={modalVisible}
         type={modalConfig.type}
         title={modalConfig.title}

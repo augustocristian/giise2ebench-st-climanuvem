@@ -40,10 +40,10 @@ export function WelcomeView({ controller }: WelcomeViewProps) {
         <View style={styles.content}>
           <View style={styles.logoContainer}>
             <Text style={styles.logoEmoji}>☁️</Text>
-            <ThemedText style={styles.logoText}>ClimaNuvem</ThemedText>
+            <ThemedText style={styles.logoText} testID="welcome-title">ClimaNuvem</ThemedText>
           </View>
           
-          <ThemedText type="title" style={styles.title}>{t('welcome.title')}</ThemedText>
+          <ThemedText type="title" style={styles.title} testID="welcome-tagline">{t('welcome.title')}</ThemedText>
           <ThemedText style={styles.subtitle}>
             {t('welcome.subtitle')}
           </ThemedText>
@@ -54,6 +54,7 @@ export function WelcomeView({ controller }: WelcomeViewProps) {
               onPress={handleNavigateToLogin} 
               variant="primary"
               icon="log-in-outline"
+              testID="welcome-login-button"
             />
 
             <AuthButton 
@@ -61,11 +62,13 @@ export function WelcomeView({ controller }: WelcomeViewProps) {
               onPress={handleContinueAsGuest} 
               variant="google"
               icon="person-outline"
+              testID="welcome-guest-button"
             />
           </View>
         </View>
       </View>
       <StatusModal
+        testID="welcome-feedback"
         visible={modalVisible}
         type={modalConfig.type}
         title={modalConfig.title}

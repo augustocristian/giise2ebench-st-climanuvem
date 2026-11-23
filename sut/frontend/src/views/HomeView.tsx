@@ -37,11 +37,12 @@ export function HomeView({ controller }: HomeViewProps) {
 
   return (
     <View style={styles.container}>
-      <AppHeader title={t('home.title')} showBack={false} />
+      <AppHeader title={t('home.title')} showBack={false} titleTestID="home-title" />
       
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <TouchableOpacity 
           style={styles.welcomeCard}
+          testID="home-welcome"
           onPress={handleNavigateToProfile}
           accessibilityRole="button"
           activeOpacity={0.7}
@@ -65,6 +66,7 @@ export function HomeView({ controller }: HomeViewProps) {
           title={t('home.analyzeImage')}
           description={t('home.analyzeDesc')}
           onPress={handleNavigateToCapture}
+          testID="home-analyze-card"
           iconColor={theme.colors.primary}
           iconBackgroundColor={theme.mode === 'dark' ? 'rgba(33, 150, 243, 0.1)' : '#E3F2FD'}
           chevronColor={theme.colors.border}
@@ -80,6 +82,7 @@ export function HomeView({ controller }: HomeViewProps) {
           title={t('home.history')}
           description={t('home.historyDesc')}
           onPress={() => loadHistory()}
+          testID="home-history-card"
           iconColor={theme.mode === 'dark' ? '#CE93D8' : '#9C27B0'}
           iconBackgroundColor={theme.mode === 'dark' ? 'rgba(156, 39, 176, 0.1)' : '#F3E5F5'}
           chevronColor={theme.colors.border}
@@ -90,7 +93,7 @@ export function HomeView({ controller }: HomeViewProps) {
           descriptionStyle={styles.actionDescription}
         />
 
-        <TouchableOpacity style={[styles.actionCard, styles.logoutCard]} onPress={handleLogout} accessibilityRole="button">
+        <TouchableOpacity style={[styles.actionCard, styles.logoutCard]} onPress={handleLogout} testID="home-logout-card" accessibilityRole="button">
           <View style={[styles.iconContainer, { backgroundColor: theme.mode === 'dark' ? 'rgba(244, 67, 54, 0.1)' : '#FFEBEE' }]}>
             <Ionicons name="log-out" size={28} color={theme.colors.danger} />
           </View>
