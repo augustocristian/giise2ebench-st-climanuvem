@@ -17,7 +17,7 @@ Context for Claude Code (and other agentic tools) working in this repo.
 │   └── README.md              # authoritative upstream docs for the SUT
 ├── .github/
 │   ├── workflows/ci-cd.yml  # this wrapper repo's own CI/CD — sut/ has none
-│   └── dependabot.yml       # dependency updates for sut/ + this repo's Actions
+│   └── dependabot.yml       # dependency updates for sut/, the e2e test suites + this repo's Actions
 └── deploy.sh / deploy.ps1   # convenience wrapper to run the SUT locally
 ```
 
@@ -109,13 +109,14 @@ Secrets: `SONAR_TOKEN`; `GOOGLE_SERVICES_JSON_BASE64` (optional for frontend-tes
 
 ## Dependabot
 
-[`.github/dependabot.yml`](.github/dependabot.yml): `pip` (`/sut/backend`), `npm` (`/sut/frontend`), `docker` (one entry each for backend/frontend `Dockerfile`), `github-actions` (`/`). Weekly.
+[`.github/dependabot.yml`](.github/dependabot.yml): `pip` (`/sut/backend`), `npm` (`/sut/frontend`), `docker` (one entry each for backend/frontend `Dockerfile`), `github-actions` (`/`), plus one block per E2E test suite: `maven` (`/selenium-java`), `npm` (`/cypress-js`), `nuget` + `dotnet-sdk` (`/playwright-csharp`), `pip` (`/puppeteer-python`) and `npm` (`/puppeteer-python/bridge`). Weekly.
 
 `groups` is used **only for genuine version-lockstep siblings** (bumping one alone breaks the build) — not to bucket by theme. One PR per package otherwise:
 
 - **`pip`**: `fastapi-pydantic`, `firebase-google-cloud`, `sqlalchemy` (+alembic), `http-stack` (httpx/httpcore/h2/hpack/hyperframe/anyio). `pytest*` (Poetry `test` group) and `sphinx*` (`docs` group) ungrouped, own PRs each.
 - **`npm`**: `expo-sdk` (expo, `expo-*`, `@expo/*`, react, react-dom, react-native, `react-native-*`, `@types/react`, jest, jest-expo — `expo install` bumps these as one unit), `react-navigation` (`@react-navigation/*`), `testing` (`@types/jest`), `linting` (eslint, `eslint-*`, `@typescript-eslint/*`, typescript).
 - **`github-actions`**: ungrouped, no cross-action version constraints.
+- **Test suites**: `cypress-js` `linting` (eslint, `@eslint/js`, `eslint-*`, globals), `playwright-csharp` `nunit` (NUnit, NUnit3TestAdapter, NUnit.Analyzers), `puppeteer-python` `pytest` (pytest + pytest-asyncio). `selenium-java` needs no group (Maven bumps the shared `<properties>` entries, so siblings already move together). `dotnet-sdk` (`global.json`) ignores `semver-major`: moving to a new .NET major is a manual decision together with `<TargetFramework>`.
 - **`docker`**: ungrouped, one `FROM` each.
 
 **Ignore rules and why:**
@@ -127,7 +128,7 @@ Note: `pydantic`/`pydantic_core` also once landed out of sync despite matching t
 
 When bumping by hand, respect the same lockstep sets (e.g. don't bump one `expo-*` package alone; don't bump `fastapi` without checking `starlette`).
 
-**Commit messages / labels**: no block sets `include: "scope"` (it would append a redundant `(deps)`/`(deps-dev)` suffix on top of the already-descriptive `prefix`). `npm` and `pip` both set `prefix-development` (`chore(frontend dev-deps)` / `chore(backend dev-deps)`) since both manifests expose a real dev/prod split Dependabot can see (`package.json` deps/devDeps; Poetry's `[project.dependencies]` vs. optional `test`/`docs` groups — only possible for `pip` since the Poetry migration). Every block sets `assignees: [augustocristian]` and labels (must pre-exist in the repo: `backend`, `backend-ai`, `frontend`, `docker`, `actions` — Dependabot won't create them):
+**Commit messages / labels**: no block sets `include: "scope"` (it would append a redundant `(deps)`/`(deps-dev)` suffix on top of the already-descriptive `prefix`). `npm` and `pip` both set `prefix-development` (`chore(frontend dev-deps)` / `chore(backend dev-deps)`) since both manifests expose a real dev/prod split Dependabot can see (`package.json` deps/devDeps; Poetry's `[project.dependencies]` vs. optional `test`/`docs` groups — only possible for `pip` since the Poetry migration). Every block sets `assignees: [augustocristian]` and labels (must pre-exist in the repo: `backend`, `backend-ai`, `frontend`, `docker`, `actions`, `e2e-tests` — Dependabot won't create them):
 
 | Block | Labels |
 | --- | --- |
@@ -136,6 +137,7 @@ When bumping by hand, respect the same lockstep sets (e.g. don't bump one `expo-
 | `docker` (backend) | `backend`, `docker` |
 | `docker` (frontend) | `frontend`, `docker` |
 | `github-actions` | `actions` |
+| test suites (`maven`, `npm`, `nuget`, `dotnet-sdk`, `pip`) | `e2e-tests` |
 
 `rebase-strategy: "disabled"` everywhere — stops auto-rebase from re-triggering CI (incl. `sonarcloud`) on every `main` push while a PR waits for review. `ci-cd.yml`'s `sonarcloud` job also guards `if: github.actor != 'dependabot[bot]'`, so individual Dependabot PRs skip it entirely — but that guard is keyed on the triggering actor, so a manually-combined "Combined dependency updates" branch (pushed by a human) still runs it.
 
