@@ -541,7 +541,7 @@ jobs:
         run: ACCOUNTS_FILE="$PWD/playwright-csharp/Resources/accounts.local.csv" bash selenium-java/scripts/seed-firebase-emulator.sh
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v6
         with:
           global-json-file: playwright-csharp/global.json
 
