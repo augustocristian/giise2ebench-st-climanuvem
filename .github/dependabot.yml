@@ -1,7 +1,9 @@
 # Dependabot configuration for giise2ebench-st-climanuvem.
 #
 # sut/ hosts two independently-versioned apps (FastAPI backend, Expo frontend) plus their
-# Dockerfiles, and this repo's own GitHub Actions workflows live at the root.
+# Dockerfiles; the four E2E test suites (selenium-java, cypress-js, playwright-csharp,
+# puppeteer-python) each have their own manifest; and this repo's own GitHub Actions
+# workflows live at the root.
 #
 # `groups` is used ONLY where packages are genuine version-lockstep siblings — bumping one
 # without the other breaks the build/runtime until both catch up (the Expo SDK train, the
@@ -193,6 +195,119 @@ updates:
     labels:
       - "frontend"
       - "docker"
+
+  # --- E2E test suites (one per tool/language; none of them is part of the SUT) ---
+  # Same conventions as above: groups only for real lockstep siblings, one PR per package
+  # otherwise. All share the `e2e-tests` label (create it in the repo before relying on it).
+
+  # Selenium + Java (Maven). Versions live in <properties> in pom.xml; Dependabot bumps the
+  # property, so packages sharing one (junit-jupiter-*, retorch-*, surefire + surefire-report)
+  # already move together without needing a group.
+  - package-ecosystem: "maven"
+    directory: "/selenium-java"
+    schedule:
+      interval: "weekly"
+    rebase-strategy: "disabled"
+    commit-message:
+      prefix: "chore(selenium deps)"
+    assignees:
+      - "augustocristian"
+    labels:
+      - "e2e-tests"
+
+  # Cypress + JavaScript (npm).
+  - package-ecosystem: "npm"
+    directory: "/cypress-js"
+    schedule:
+      interval: "weekly"
+    rebase-strategy: "disabled"
+    commit-message:
+      prefix: "chore(cypress deps)"
+      prefix-development: "chore(cypress dev-deps)"
+    assignees:
+      - "augustocristian"
+    labels:
+      - "e2e-tests"
+    groups:
+      linting:
+        # @eslint/js and eslint must share a major; eslint-plugin-cypress and globals are
+        # the flat-config pieces eslint.config.js wires together with them.
+        patterns:
+          - "eslint"
+          - "@eslint/js"
+          - "eslint-*"
+          - "globals"
+
+  # Playwright + C# (NuGet).
+  - package-ecosystem: "nuget"
+    directory: "/playwright-csharp"
+    schedule:
+      interval: "weekly"
+    rebase-strategy: "disabled"
+    commit-message:
+      prefix: "chore(playwright deps)"
+    assignees:
+      - "augustocristian"
+    labels:
+      - "e2e-tests"
+    groups:
+      nunit:
+        # NUnit 4, its VSTest adapter and its Roslyn analyzers are released as a family
+        # and the analyzers/adapter track the NUnit major they support.
+        patterns:
+          - "NUnit"
+          - "NUnit3TestAdapter"
+          - "NUnit.Analyzers"
+
+  # .NET SDK pinned in playwright-csharp/global.json (the project targets the current LTS;
+  # a new major is an STS/preview jump to decide by hand, together with <TargetFramework>).
+  - package-ecosystem: "dotnet-sdk"
+    directory: "/playwright-csharp"
+    schedule:
+      interval: "weekly"
+    rebase-strategy: "disabled"
+    commit-message:
+      prefix: "chore(playwright sdk)"
+    assignees:
+      - "augustocristian"
+    labels:
+      - "e2e-tests"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
+  # Puppeteer + Python: pytest suite (Poetry).
+  - package-ecosystem: "pip"
+    directory: "/puppeteer-python"
+    schedule:
+      interval: "weekly"
+    rebase-strategy: "disabled"
+    commit-message:
+      prefix: "chore(puppeteer deps)"
+    assignees:
+      - "augustocristian"
+    labels:
+      - "e2e-tests"
+    groups:
+      pytest:
+        # pytest-asyncio declares the pytest range it supports, so a pytest bump alone can be
+        # rejected by the resolver (and the reverse).
+        patterns:
+          - "pytest"
+          - "pytest-asyncio"
+
+  # Puppeteer + Python: the Node bridge that runs the real Puppeteer (single dependency).
+  - package-ecosystem: "npm"
+    directory: "/puppeteer-python/bridge"
+    schedule:
+      interval: "weekly"
+    rebase-strategy: "disabled"
+    commit-message:
+      prefix: "chore(puppeteer bridge deps)"
+    assignees:
+      - "augustocristian"
+    labels:
+      - "e2e-tests"
 
   # --- GitHub Actions workflows (always read from .github/workflows at the repo root,
   #     regardless of where the code they build lives) ---

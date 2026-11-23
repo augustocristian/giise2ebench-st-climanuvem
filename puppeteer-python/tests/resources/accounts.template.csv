@@ -1,0 +1,4 @@
+role,email,password,verified,description
+login_user,user@example.test,change-me,true,Existing account for login tests
+profile_user,profile@example.test,change-me,true,Verified account for profile tests
+unknown_user,missing@example.test,wrong-password,false,Non-existing account for negative login tests
