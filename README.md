@@ -1,7 +1,7 @@
-# giise2ebench-st-climanuvem
-
 [![CI/CD](https://github.com/augustocristian/giise2ebench-st-climanuvem/actions/workflows/ci-cd.yml/badge.svg?branch=main)](https://github.com/augustocristian/giise2ebench-st-climanuvem/actions/workflows/ci-cd.yml)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=augustocristian_giise2ebench-st-climanuvem&metric=alert_status)](https://sonarcloud.io/project/overview?id=augustocristian_giise2ebench-st-climanuvem)
+
+# giise2ebench-st-climanuvem
 
 <p align="center"><img src="img/hero-climanuvem.svg" alt="ClimaNuvem home screen (guest session) with quick actions Analyze Image, History and Log Out, shown in a desktop browser and on a phone" width="900"/></p>
 
